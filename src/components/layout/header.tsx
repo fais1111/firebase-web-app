@@ -190,7 +190,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map(link => renderNavLink(link))}
+          {navLinks.map(link => <div key={link.label}>{renderNavLink(link)}</div>)}
         </nav>
 
         <div className="flex items-center gap-2">
