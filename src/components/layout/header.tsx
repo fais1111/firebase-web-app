@@ -145,7 +145,7 @@ export default function Header() {
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
-                { user ? <UserNav /> : <Menu /> }
+                <Menu />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full max-w-sm">
@@ -154,9 +154,11 @@ export default function Header() {
                   <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
                     <Logo />
                   </Link>
-                  <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-                    <X />
-                  </Button>
+                  {user ? <UserNav /> : (
+                    <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+                      <X />
+                    </Button>
+                  )}
                 </div>
                 <nav className="flex flex-col gap-4 py-8">
                   {navLinks.map((link) => (
