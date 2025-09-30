@@ -3,6 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
+import { auth } from '@/lib/firebase/config';
 
 const formSchema = z.object({
   email: z.string().email({
@@ -30,6 +33,7 @@ const formSchema = z.object({
 
 export default function LoginForm() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,13 +44,28 @@ export default function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // TODO: Implement Firebase authentication
-    toast({
-      title: 'Login Submitted',
-      description: 'This is a placeholder. Authentication not yet implemented.',
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: 'Login Successful',
+        description: "Welcome back!",
+      });
+      router.push('/');
+    } catch (error: any) {
+      console.error('Error signing in:', error);
+      
+      let errorMessage = 'An unexpected error occurred during sign in.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Sign In Failed',
+        description: errorMessage,
+      });
+    }
   }
 
   return (
@@ -106,8 +125,9 @@ export default function LoginForm() {
         <Button
           type="submit"
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+          disabled={form.formState.isSubmitting}
         >
-          Sign In
+          {form.formState.isSubmitting ? 'Signing In...' : 'Sign In'}
         </Button>
       </form>
     </Form>
