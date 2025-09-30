@@ -5,15 +5,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
-// IMPORTANT: This configuration is loaded from environment variables for security.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDr2-s-EkcOJJIts3ook8Iz2BSFnTSg-Tk",
+  authDomain: "anas-66343.firebaseapp.com",
+  projectId: "anas-66343",
+  storageBucket: "anas-66343.firebasestorage.app",
+  messagingSenderId: "595979858263",
+  appId: "1:595979858263:web:dd2f1e6e3767320ede8e12"
 };
+
 
 // Initialize Firebase
 // We check if an app is already initialized to prevent errors during hot-reloading in development.
