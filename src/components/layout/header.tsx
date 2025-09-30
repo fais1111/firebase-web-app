@@ -144,7 +144,9 @@ export default function Header() {
 
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon">
                 { user ? <UserNav /> : <Menu /> }
+              </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full max-w-sm">
               <div className="flex flex-col h-full">
