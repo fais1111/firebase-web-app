@@ -215,52 +215,55 @@ export default function Header() {
             )}
           </div>
 
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon">
-                { user ? <UserNav /> : <Menu /> }
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-sm p-0">
-              <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between border-b p-4">
-                  <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Logo />
-                  </Link>
-                    <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-                      <X />
-                    </Button>
-                </div>
-                <nav className="flex flex-col gap-4 py-8">
-                  {navLinks.map((link) => (
-                    <div key={link.label}>
-                     {renderNavLink(link, true)}
-                    </div>
-                  ))}
-                </nav>
-                <div className="mt-auto border-t p-4 space-y-4">
-                  <div className="relative">
-                    <Input
-                      type="search"
-                      placeholder="Search..."
-                      className="pr-8"
-                    />
-                    <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="md:hidden flex items-center gap-2">
+            {user && <UserNav />}
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full max-w-sm p-0">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center justify-between border-b p-4">
+                    <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Logo />
+                    </Link>
+                      <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
+                        <X />
+                      </Button>
                   </div>
-                  { !user && (
-                    <div className='flex flex-col gap-2'>
-                      <Button variant="outline" asChild className='w-full'>
-                          <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
-                      </Button>
-                      <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
-                      </Button>
+                  <nav className="flex flex-col gap-4 py-8">
+                    {navLinks.map((link) => (
+                      <div key={link.label}>
+                      {renderNavLink(link, true)}
+                      </div>
+                    ))}
+                  </nav>
+                  <div className="mt-auto border-t p-4 space-y-4">
+                    <div className="relative">
+                      <Input
+                        type="search"
+                        placeholder="Search..."
+                        className="pr-8"
+                      />
+                      <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     </div>
-                  )}
+                    { !user && (
+                      <div className='flex flex-col gap-2'>
+                        <Button variant="outline" asChild className='w-full'>
+                            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                        </Button>
+                        <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                            <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
     </header>
