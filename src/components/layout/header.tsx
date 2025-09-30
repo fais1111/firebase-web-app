@@ -48,7 +48,7 @@ const navLinks = [
 ];
 
 function UserNav() {
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
     const router = useRouter();
 
     const handleSignOut = async () => {
@@ -76,6 +76,11 @@ function UserNav() {
                     <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">Admin Panel</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleSignOut}>
                     Sign out
                 </DropdownMenuItem>

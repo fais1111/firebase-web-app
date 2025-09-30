@@ -11,9 +11,12 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const ADMIN_EMAIL = 'techworldinfo98@gmail.com';
+
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
+  isAdmin: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,10 +24,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setIsAdmin(user?.email === ADMIN_EMAIL);
       setIsLoading(false);
     });
 
@@ -47,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading }}>
+    <AuthContext.Provider value={{ user, isLoading, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
