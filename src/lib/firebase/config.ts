@@ -18,7 +18,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 // We check if an app is already initialized to prevent errors during hot-reloading in development.
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const db = getFirestore(app);
