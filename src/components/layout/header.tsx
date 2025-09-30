@@ -34,6 +34,7 @@ const navLinks = [
   {
     href: '#',
     label: 'Our Services',
+    authRequired: true,
     dropdown: [
       { href: '/services/accident-management', label: 'Accident Management' },
       { href: '/services/suicide-prevention', label: 'Suicide Prevention' },
@@ -87,6 +88,100 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useAuth();
 
+  const renderNavLink = (link: (typeof navLinks)[0], isMobile = false) => {
+    if (link.authRequired && !user) {
+      if (isMobile) {
+        return (
+          <>
+            <p className="font-semibold px-4 text-muted-foreground">{link.label}</p>
+            <div className="flex flex-col pl-8">
+              <Button
+                variant="link"
+                className="justify-start text-muted-foreground"
+                asChild
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Link href="/login">Sign in to view</Link>
+              </Button>
+            </div>
+          </>
+        );
+      }
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-1">
+              {link.label}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem asChild>
+              <Link href="/login">Sign in to view services</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    if (link.dropdown) {
+      if (isMobile) {
+        return (
+          <>
+            <p className="font-semibold px-4">{link.label}</p>
+            <div className="flex flex-col pl-8">
+              {link.dropdown.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-muted-foreground hover:text-foreground py-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </>
+        );
+      }
+      return (
+        <DropdownMenu key={link.label}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-1">
+              {link.label}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {link.dropdown.map((item) => (
+              <DropdownMenuItem key={item.label} asChild>
+                <Link href={item.href}>{item.label}</Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+    
+    if (isMobile) {
+        return (
+            <Link
+                href={link.href}
+                className="font-semibold text-lg px-4 py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+            >
+                {link.label}
+            </Link>
+        )
+    }
+
+    return (
+      <Button key={link.label} variant="ghost" asChild>
+        <Link href={link.href}>{link.label}</Link>
+      </Button>
+    );
+  };
+
   return (
     <header className="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b">
       <div className="container mx-auto px-4 flex items-center justify-between h-16">
@@ -95,29 +190,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) =>
-            link.dropdown ? (
-              <DropdownMenu key={link.label}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1">
-                    {link.label}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {link.dropdown.map((item) => (
-                    <DropdownMenuItem key={item.label} asChild>
-                      <Link href={item.href}>{item.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button key={link.label} variant="ghost" asChild>
-                <Link href={link.href}>{link.label}</Link>
-              </Button>
-            )
-          )}
+          {navLinks.map(link => renderNavLink(link))}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -145,54 +218,27 @@ export default function Header() {
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon">
-                <Menu />
+                { user ? <UserNav /> : <Menu /> }
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-sm">
+            <SheetContent side="right" className="w-full max-w-sm p-0">
               <div className="flex flex-col h-full">
-                <div className="flex items-center justify-between border-b pb-4">
+                <div className="flex items-center justify-between border-b p-4">
                   <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
                     <Logo />
                   </Link>
-                  {user ? <UserNav /> : (
                     <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
                       <X />
                     </Button>
-                  )}
                 </div>
                 <nav className="flex flex-col gap-4 py-8">
                   {navLinks.map((link) => (
                     <div key={link.label}>
-                      {link.dropdown ? (
-                        <>
-                         <p className='font-semibold px-4'>{link.label}</p>
-                         <div className='flex flex-col pl-8'>
-                          {link.dropdown.map((item) => (
-                              <Link
-                                key={item.label}
-                                href={item.href}
-                                className="text-muted-foreground hover:text-foreground py-2"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                              >
-                                {item.label}
-                              </Link>
-                            ))}
-                         </div>
-                        </>
-
-                      ) : (
-                        <Link
-                          href={link.href}
-                          className="font-semibold text-lg px-4 py-2"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          {link.label}
-                        </Link>
-                      )}
+                     {renderNavLink(link, true)}
                     </div>
                   ))}
                 </nav>
-                <div className="mt-auto border-t pt-4 space-y-4">
+                <div className="mt-auto border-t p-4 space-y-4">
                   <div className="relative">
                     <Input
                       type="search"
