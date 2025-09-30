@@ -20,8 +20,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import Logo from '@/components/logo';
+import { useAuth } from '@/hooks/use-auth';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
+import { useRouter } from 'next/navigation';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -40,8 +46,46 @@ const navLinks = [
   { href: '/help', label: 'Help' },
 ];
 
+function UserNav() {
+    const { user } = useAuth();
+    const router = useRouter();
+
+    const handleSignOut = async () => {
+        await signOut(auth);
+        router.push('/');
+    };
+
+    if (!user) return null;
+
+    const userInitial = user.email ? user.email.charAt(0).toUpperCase() : '?';
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.photoURL || undefined} alt={user.email || 'User'} />
+                        <AvatarFallback>{userInitial}</AvatarFallback>
+                    </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem className="flex flex-col items-start" disabled>
+                    <p className="text-sm font-medium leading-none">{user.displayName || 'User'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                    Sign out
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <header className="bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b">
@@ -77,7 +121,7 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-4">
             <div className="relative">
               <Input
                 type="search"
@@ -86,19 +130,21 @@ export default function Header() {
               />
               <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
-            <Button variant="ghost" asChild>
-                <Link href="/login">Sign In</Link>
-            </Button>
-            <Button asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href="/signup">Sign Up</Link>
-            </Button>
+            { user ? <UserNav /> : (
+                <>
+                    <Button variant="ghost" asChild>
+                        <Link href="/login">Sign In</Link>
+                    </Button>
+                    <Button asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                        <Link href="/signup">Sign Up</Link>
+                    </Button>
+                </>
+            )}
           </div>
 
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon">
-                <Menu />
-              </Button>
+                { user ? <UserNav /> : <Menu /> }
             </SheetTrigger>
             <SheetContent side="right" className="w-full max-w-sm">
               <div className="flex flex-col h-full">
@@ -151,14 +197,16 @@ export default function Header() {
                     />
                     <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div className='flex flex-col gap-2'>
-                    <Button variant="outline" asChild className='w-full'>
-                        <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
-                    </Button>
-                    <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                        <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
-                    </Button>
-                  </div>
+                  { !user && (
+                    <div className='flex flex-col gap-2'>
+                      <Button variant="outline" asChild className='w-full'>
+                          <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                      </Button>
+                      <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </SheetContent>
