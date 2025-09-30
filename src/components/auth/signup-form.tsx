@@ -3,6 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +17,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '@/components/ui/checkbox';
+import { auth, db } from '@/lib/firebase/config';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z
   .object({
@@ -26,7 +29,6 @@ const formSchema = z
       message: 'Password must be at least 8 characters.',
     }),
     confirmPassword: z.string(),
-    remember: z.boolean().default(false).optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -35,6 +37,7 @@ const formSchema = z
 
 export default function SignUpForm() {
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,17 +45,50 @@ export default function SignUpForm() {
       email: '',
       password: '',
       confirmPassword: '',
-      remember: false,
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // TODO: Implement Firebase authentication
-    toast({
-      title: 'Sign Up Submitted',
-      description: 'This is a placeholder. Authentication not yet implemented.',
-    });
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      // 1. Create user with Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        values.email,
+        values.password
+      );
+      const user = userCredential.user;
+
+      // 2. Save user information to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        email: user.email,
+        createdAt: new Date(),
+        uid: user.uid,
+      });
+
+      toast({
+        title: 'Sign Up Successful',
+        description: 'Welcome! You have successfully created an account.',
+      });
+
+      // 3. Redirect to home page after successful signup
+      router.push('/');
+
+    } catch (error: any) {
+      console.error('Error signing up:', error);
+      
+      let errorMessage = 'An unexpected error occurred during sign up.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email address is already in use.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'The password is too weak.';
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Sign Up Failed',
+        description: errorMessage,
+      });
+    }
   }
 
   return (
@@ -97,28 +133,12 @@ export default function SignUpForm() {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="remember"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Remember me</FormLabel>
-              </div>
-            </FormItem>
-          )}
-        />
         <Button
           type="submit"
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+          disabled={form.formState.isSubmitting}
         >
-          Sign Up
+          {form.formState.isSubmitting ? 'Signing Up...' : 'Sign Up'}
         </Button>
       </form>
     </Form>
