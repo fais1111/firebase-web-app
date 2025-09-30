@@ -2,13 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read and write to their own document in the 'users' collection
-    match /users/{userId} {
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
-    }
     
-    // Deny all other access by default
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      return request.auth.token.email == 'techworldinfo98@gmail.com';
+    }
+
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Admins can read and write any user document
+      allow read, write: if isAdmin();
+      
+      // Users can create their own document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can only read or update their own document
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny rule for all other documents
     match /{document=**} {
       allow read, write: if false;
     }
