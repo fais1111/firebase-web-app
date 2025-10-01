@@ -82,6 +82,7 @@ export default function LoginForm() {
   }
 
   async function handleGoogleSignIn() {
+    if (!firestore) return;
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -89,7 +90,7 @@ export default function LoginForm() {
       const additionalInfo = getAdditionalUserInfo(result);
 
       // If it's a new user, save their data to Firestore
-      if (additionalInfo?.isNewUser && firestore) {
+      if (additionalInfo?.isNewUser) {
         await setDoc(doc(firestore, 'users', user.uid), {
           email: user.email,
           createdAt: new Date(),
