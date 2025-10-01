@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { AlertTriangle, Flag, Loader2, MapPin, Youtube } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
@@ -52,14 +54,22 @@ function GuideManager() {
 
     async function onSubmit(values: z.infer<typeof guideSchema>) {
         if (!firestore) return;
-        try {
-            await addDoc(collection(firestore, 'accident_guides'), values);
-            toast({ title: "Guide Added", description: "The new guide has been saved."});
-            form.reset();
-        } catch (e) {
-            console.error("Error adding guide: ", e);
-            toast({ variant: "destructive", title: "Error", description: "Could not add guide." });
-        }
+        
+        const guidesCollection = collection(firestore, 'accident_guides');
+        
+        addDoc(guidesCollection, values)
+            .then(() => {
+                toast({ title: "Guide Added", description: "The new guide has been saved." });
+                form.reset();
+            })
+            .catch(() => {
+                const permissionError = new FirestorePermissionError({
+                    path: guidesCollection.path,
+                    operation: 'create',
+                    requestResourceData: values,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     }
 
     return (
@@ -144,14 +154,21 @@ function LocationManager() {
 
     async function onSubmit(values: z.infer<typeof locationSchema>) {
         if (!firestore) return;
-        try {
-            await addDoc(collection(firestore, 'admin_locations'), values);
-            toast({ title: "Location Added", description: "The new location has been saved."});
-            form.reset();
-        } catch (e) {
-            console.error("Error adding location: ", e);
-            toast({ variant: "destructive", title: "Error", description: "Could not add location." });
-        }
+        const locationsCollection = collection(firestore, 'admin_locations');
+        
+        addDoc(locationsCollection, values)
+            .then(() => {
+                toast({ title: "Location Added", description: "The new location has been saved." });
+                form.reset();
+            })
+            .catch(() => {
+                 const permissionError = new FirestorePermissionError({
+                    path: locationsCollection.path,
+                    operation: 'create',
+                    requestResourceData: values,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     }
 
     return (
@@ -253,7 +270,7 @@ function AccidentReportsViewer() {
               {reports?.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell>{report.userEmail || 'N/A'}</TableCell>
-                    <TableCell>{report.reportDate ? format(report.reportDate.toDate(), 'PPP') : 'N/A'}</TableCell>
+                    <TableCell>{report.reportDate ? format(new Date(report.reportDate.seconds * 1000), 'PPP') : 'N/A'}</TableCell>
                     <TableCell>{report.locationDescription}</TableCell>
                     <TableCell>
                         <p className='max-w-xs truncate'>{report.description}</p>
@@ -338,3 +355,5 @@ export default function AdminPage() {
     </div>
   );
 }
+
+    

@@ -238,19 +238,28 @@ function AccidentGuidesViewer() {
     const guidesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_guides') : null, [firestore]);
     const { data: guides, isLoading, error } = useCollection(guidesQuery);
 
+    if (isLoading) {
+        return <Loader2 className="mx-auto h-8 w-8 animate-spin" />;
+    }
+
+    if (error) {
+        // The useCollection hook now throws a contextual error, which will be caught
+        // by the error boundary. We can show a simple message here or nothing at all.
+        // The detailed error will appear in the Next.js dev overlay.
+        return (
+             <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error Loading Guides</AlertTitle>
+                <AlertDescription>There was a problem fetching the guides. The error has been logged for review.</AlertDescription>
+            </Alert>
+        );
+    }
+
     return (
         <div className="mt-12">
             <h2 className="text-3xl font-headline font-bold text-center mb-8">
                 Helpful Guides
             </h2>
-            {isLoading && <Loader2 className="mx-auto h-8 w-8 animate-spin" />}
-            {error && (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>Could not load guides. Please try again later.</AlertDescription>
-                </Alert>
-            )}
             <div className="grid md:grid-cols-2 gap-8">
                 {!isLoading && guides?.length === 0 && (
                     <p className="text-center text-muted-foreground md:col-span-2">No guides have been added yet.</p>
