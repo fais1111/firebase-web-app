@@ -31,6 +31,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, MapPin, CheckCircle, Loader2 } from 'lucide-react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { format } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const formSchema = z.object({
   locationDescription: z.string().min(10, {
@@ -62,29 +64,34 @@ function ReportAccidentForm() {
       return;
     }
 
-    try {
-      await addDoc(collection(db, 'accident_reports'), {
+    const reportData = {
         ...values,
         userId: user.uid,
         userEmail: user.email,
         reportDate: serverTimestamp(),
         status: 'reported',
-      });
+    };
 
-      toast({
-        title: 'Report Submitted',
-        description:
-          'Thank you for your submission. An admin will review it shortly.',
+    const reportsCollection = collection(db, 'accident_reports');
+
+    addDoc(reportsCollection, reportData)
+      .then(() => {
+        toast({
+          title: 'Report Submitted',
+          description:
+            'Thank you for your submission. An admin will review it shortly.',
+        });
+        form.reset();
+      })
+      .catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: reportsCollection.path,
+          operation: 'create',
+          requestResourceData: reportData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // We don't show a toast here because the global listener will show the error overlay
       });
-      form.reset();
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
-        description: 'Could not submit your report. Please try again.',
-      });
-    }
   }
 
   return (
