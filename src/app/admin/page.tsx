@@ -240,7 +240,7 @@ function UserManagement() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!loading && users?.length === 0 && (
+                {!isLoading && users?.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={3} className="text-center text-muted-foreground">No users found.</TableCell>
                     </TableRow>
