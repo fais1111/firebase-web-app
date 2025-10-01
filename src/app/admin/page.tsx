@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube } from 'lucide-react';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '@/components/ui/textarea';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
@@ -57,18 +58,19 @@ function GuideManager() {
         
         const guidesCollection = collection(firestore, 'accident_guides');
         
-        try {
-            await addDoc(guidesCollection, values);
-            toast({ title: "Guide Added", description: "The new guide has been saved." });
-            form.reset();
-        } catch (serverError: any) {
+        addDoc(guidesCollection, values)
+        .then(() => {
+          toast({ title: "Guide Added", description: "The new guide has been saved." });
+          form.reset();
+        })
+        .catch((serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: guidesCollection.path,
                 operation: 'create',
                 requestResourceData: values,
             });
             errorEmitter.emit('permission-error', permissionError);
-        }
+        });
     }
 
     return (
@@ -155,18 +157,19 @@ function LocationManager() {
         if (!firestore) return;
         const locationsCollection = collection(firestore, 'admin_locations');
         
-        try {
-            await addDoc(locationsCollection, values);
+        addDoc(locationsCollection, values)
+        .then(() => {
             toast({ title: "Location Added", description: "The new location has been saved." });
             form.reset();
-        } catch (serverError: any) {
+        })
+        .catch((serverError) => {
              const permissionError = new FirestorePermissionError({
                 path: locationsCollection.path,
                 operation: 'create',
                 requestResourceData: values,
             });
             errorEmitter.emit('permission-error', permissionError);
-        }
+        });
     }
 
     return (
@@ -293,6 +296,67 @@ function AccidentReportsViewer() {
   );
 }
 
+function UsersViewer() {
+  const firestore = useFirestore();
+  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const { data: users, isLoading: loading, error } = useCollection(usersQuery);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-headline">
+          <Users /> Registered Users
+        </CardTitle>
+        <CardDescription>
+          List of all registered users in the application.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : error ? <p className="text-destructive">Error loading users.</p> : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users?.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email} />
+                          <AvatarFallback>{user.email?.[0].toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span>{user.displayName || 'N/A'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.createdAt ? format(new Date(user.createdAt.seconds * 1000), 'PPP') : 'N/A'}</TableCell>
+                  </TableRow>
+              ))}
+               {!loading && users?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground">No users have signed up yet.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function AdminDashboard() {
   return (
     <div className="space-y-8">
@@ -307,6 +371,7 @@ function AdminDashboard() {
         </CardContent>
       </Card>
       
+      <UsersViewer />
       <AccidentReportsViewer />
       <LocationManager />
       <GuideManager />
