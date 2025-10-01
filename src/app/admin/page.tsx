@@ -52,24 +52,23 @@ function GuideManager() {
         defaultValues: { title: "", description: "", youtubeUrl: "" }
     });
 
-    function onSubmit(values: z.infer<typeof guideSchema>) {
+    async function onSubmit(values: z.infer<typeof guideSchema>) {
         if (!firestore) return;
         
         const guidesCollection = collection(firestore, 'accident_guides');
         
-        addDoc(guidesCollection, values)
-            .then(() => {
-                toast({ title: "Guide Added", description: "The new guide has been saved." });
-                form.reset();
-            })
-            .catch((serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: guidesCollection.path,
-                    operation: 'create',
-                    requestResourceData: values,
-                });
-                errorEmitter.emit('permission-error', permissionError);
+        try {
+            await addDoc(guidesCollection, values);
+            toast({ title: "Guide Added", description: "The new guide has been saved." });
+            form.reset();
+        } catch (serverError: any) {
+            const permissionError = new FirestorePermissionError({
+                path: guidesCollection.path,
+                operation: 'create',
+                requestResourceData: values,
             });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     }
 
     return (
@@ -152,23 +151,22 @@ function LocationManager() {
         defaultValues: { name: "", description: "" }
     });
 
-    function onSubmit(values: z.infer<typeof locationSchema>) {
+    async function onSubmit(values: z.infer<typeof locationSchema>) {
         if (!firestore) return;
         const locationsCollection = collection(firestore, 'admin_locations');
         
-        addDoc(locationsCollection, values)
-            .then(() => {
-                toast({ title: "Location Added", description: "The new location has been saved." });
-                form.reset();
-            })
-            .catch((serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: locationsCollection.path,
-                    operation: 'create',
-                    requestResourceData: values,
-                });
-                errorEmitter.emit('permission-error', permissionError);
+        try {
+            await addDoc(locationsCollection, values);
+            toast({ title: "Location Added", description: "The new location has been saved." });
+            form.reset();
+        } catch (serverError: any) {
+             const permissionError = new FirestorePermissionError({
+                path: locationsCollection.path,
+                operation: 'create',
+                requestResourceData: values,
             });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     }
 
     return (
