@@ -1,49 +1,39 @@
+
 {
   "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the application.",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
     "AccidentReport": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AccidentReport",
       "type": "object",
       "description": "Represents a user-submitted accident report.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the accident report."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who submitted the report. (Relationship: User 1:N AccidentReport)"
-        },
-        "reportDate": {
-          "type": "string",
-          "description": "Date and time the accident was reported.",
-          "format": "date-time"
-        },
-        "description": {
-          "type": "string",
-          "description": "Detailed description of the accident."
-        },
-        "locationDescription": {
-          "type": "string",
-          "description": "Textual description of the accident location as entered by the user."
-        },
-        "adminLocationId": {
-          "type": "string",
-          "description": "Reference to the AdminLocation that is associated with this report. Can be null if not yet reviewed by an admin. (Relationship: AdminLocation 1:N AccidentReport)"
-        },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "reportDate": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "locationDescription": { "type": "string" },
+        "adminLocationId": { "type": "string" },
+        "adminLocationName": { "type": "string" },
         "status": {
           "type": "string",
-          "description": "The status of the accident report [reported, under_review, closed]."
+          "enum": ["reported", "approved", "denied"]
         }
       },
-      "required": [
-        "id",
-        "userId",
-        "reportDate",
-        "description",
-        "locationDescription",
-        "status"
-      ]
+      "required": ["userId", "reportDate", "description", "locationDescription", "status"]
     },
     "AdminLocation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -51,80 +41,34 @@
       "type": "object",
       "description": "Represents a location added by an administrator.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the admin-added location."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name or label for the location."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "Latitude coordinate of the location."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "Longitude coordinate of the location."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the location."
-        }
+        "name": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "description": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "latitude",
-        "longitude"
-      ]
+      "required": ["name", "latitude", "longitude"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "google.com"]
   },
   "firestore": {
-    "structure": [
+    "collections": [
       {
-        "path": "/users/{userId}/accident_reports/{reportId}",
-        "definition": {
-          "entityName": "AccidentReport",
-          "schema": {
-            "$ref": "#/backend/entities/AccidentReport"
-          },
-          "description": "Accident reports submitted by users. Includes 'userId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user who submitted the report."
-            },
-            {
-              "name": "reportId",
-              "description": "The unique ID of the accident report."
-            }
-          ]
-        }
+        "path": "/users/{userId}",
+        "schema": { "$ref": "#/entities/UserProfile" },
+        "description": "Stores public profiles for users."
+      },
+      {
+        "path": "/accident_reports/{reportId}",
+        "schema": { "$ref": "#/entities/AccidentReport" },
+        "description": "Stores all accident reports from all users."
       },
       {
         "path": "/admin_locations/{locationId}",
-        "definition": {
-          "entityName": "AdminLocation",
-          "schema": {
-            "$ref": "#/backend/entities/AdminLocation"
-          },
-          "description": "Locations added by administrators.",
-          "params": [
-            {
-              "name": "locationId",
-              "description": "The unique ID of the admin-added location."
-            }
-          ]
-        }
+        "schema": { "$ref": "#/entities/AdminLocation" },
+        "description": "Stores locations curated by administrators."
       }
-    ],
-    "reasoning": "This Firestore data structure is designed to support the accident reporting feature. It separates user-submitted reports from admin-managed locations to ensure clear data ownership and access control.  It adheres to the core design principles: Authorization Independence is achieved by colocating the `userId` in the `accident_reports` documents, enabling rules that validate the `request.auth.uid == resource.data.userId`. Structural Segregation separates `accident_reports` (user generated) from `admin_locations` (admin generated/curated). Path-based ownership is utilized for `accident_reports` stored under each `user`. This structure facilitates secure list operations (QAPs) because each collection has a homogeneous security posture. Writes to `accident_reports` are secured via `request.auth.uid` checks, admin write to `admin_locations` collection is secured via admin role."
+    ]
   }
 }
