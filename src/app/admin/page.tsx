@@ -10,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2 } from 'lucide-react';
+import { collection, addDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
@@ -73,6 +84,23 @@ function GuideManager() {
         });
     }
 
+    async function handleDelete(guideId: string) {
+        if (!firestore) return;
+        const guideDoc = doc(firestore, 'accident_guides', guideId);
+        deleteDoc(guideDoc)
+            .then(() => {
+                toast({ title: 'Guide Deleted', description: 'The guide has been removed.' });
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: guideDoc.path,
+                    operation: 'delete',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+    }
+
+
     return (
         <Card>
             <CardHeader>
@@ -80,7 +108,7 @@ function GuideManager() {
                     <Youtube /> Accident Guide Management
                 </CardTitle>
                 <CardDescription>
-                    Add YouTube links as guides for accident management. These will be shown to all users.
+                    Add or remove YouTube links as guides for accident management.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -96,10 +124,31 @@ function GuideManager() {
                         {error && <p className="text-destructive">Error loading guides.</p>}
                         <div className="space-y-2">
                             {guides?.map(guide => (
-                                <div key={guide.id} className="p-3 border rounded-md text-sm">
-                                    <p className="font-bold">{guide.title}</p>
-                                    <p className="text-muted-foreground truncate">{guide.description}</p>
-                                    <a href={guide.youtubeUrl} target="_blank" rel="noopener noreferrer" className="text-primary text-xs hover:underline truncate">{guide.youtubeUrl}</a>
+                                <div key={guide.id} className="flex items-center justify-between p-3 border rounded-md text-sm">
+                                    <div className="flex-1 overflow-hidden">
+                                        <p className="font-bold truncate">{guide.title}</p>
+                                        <p className="text-muted-foreground truncate">{guide.description}</p>
+                                        <a href={guide.youtubeUrl} target="_blank" rel="noopener noreferrer" className="text-primary text-xs hover:underline truncate block">{guide.youtubeUrl}</a>
+                                    </div>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="ml-2 flex-shrink-0">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This action cannot be undone. This will permanently delete the guide titled "{guide.title}".
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDelete(guide.id)} className='bg-destructive hover:bg-destructive/90'>Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             ))}
                             {!loading && guides?.length === 0 && <p className="text-muted-foreground text-sm">No guides added yet.</p>}
@@ -172,6 +221,22 @@ function LocationManager() {
         });
     }
 
+     async function handleDelete(locationId: string) {
+        if (!firestore) return;
+        const locationDoc = doc(firestore, 'admin_locations', locationId);
+        deleteDoc(locationDoc)
+            .then(() => {
+                toast({ title: 'Location Deleted', description: 'The location has been removed.' });
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: locationDoc.path,
+                    operation: 'delete',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+    }
+
     return (
       <Card>
         <CardHeader>
@@ -179,7 +244,7 @@ function LocationManager() {
             <MapPin /> Accident Location Management
           </CardTitle>
           <CardDescription>
-            Add or manage locations where accidents frequently occur. This will be shown to users.
+            Add or remove locations where accidents frequently occur.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -195,9 +260,30 @@ function LocationManager() {
                     {error && <p className="text-destructive">Error loading locations.</p>}
                     <div className="space-y-2">
                         {locations?.map(loc => (
-                            <div key={loc.id} className="p-3 border rounded-md text-sm">
-                                <p className="font-bold">{loc.name}</p>
-                                <p className="text-muted-foreground">{loc.description}</p>
+                            <div key={loc.id} className="flex items-center justify-between p-3 border rounded-md text-sm">
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="font-bold truncate">{loc.name}</p>
+                                    <p className="text-muted-foreground truncate">{loc.description}</p>
+                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                         <Button variant="ghost" size="icon" className="ml-2 flex-shrink-0">
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action cannot be undone. This will permanently delete the location "{loc.name}".
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(loc.id)} className='bg-destructive hover:bg-destructive/90'>Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </div>
                         ))}
                          {!loading && locations?.length === 0 && <p className="text-muted-foreground text-sm">No locations added yet.</p>}
