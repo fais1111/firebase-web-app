@@ -1,111 +1,105 @@
 /**
- * @fileoverview Firestore Security Rules for Prototyping.
+ * @fileoverview Firestore Security Rules for the Accident Reporting App.
  *
  * Core Philosophy:
- * This ruleset prioritizes security by enforcing strict user-ownership and role-based access control where appropriate.
- * It avoids complex data validation to allow for rapid schema iteration during the prototyping phase.
+ * This ruleset employs a hybrid security model. User profiles are private and
+ * accessible only to the owner. Accident reports are public, but ownership
+ * is enforced for modification. Admin-curated locations and accident guides
+ * are public and read-only.
  *
  * Data Structure:
- * - /users/{userId}: Stores public user profiles. Accessible only to the owner.
- * - /accident_reports/{reportId}: Stores accident reports. Accessible only to authenticated users.
- * - /admin_locations/{locationId}: Stores curated admin locations. Accessible only to authenticated users.
- * - /accident_guides/{guideId}: Stores accident management guides. Accessible only to authenticated users.
+ * - /users/{userId}: User profile information, accessible only to the user.
+ * - /accident_reports/{reportId}: Accident reports submitted by users. Publicly readable,
+ *   but create, update, and delete operations are restricted to the report owner.
+ * - /admin_locations/{locationId}: Locations curated by administrators. Publicly readable,
+ *   but writes are disallowed in the prototype phase.
+ * - /accident_guides/{guideId}: Accident management guides with YouTube links. Publicly readable,
+ *   but writes are disallowed in the prototype phase.
  *
  * Key Security Decisions:
- * - No user listing is allowed to prevent data scraping.
- * - Data validation is minimized to focus on authorization and relationship integrity.
- * - The rules explicitly deny any potentially unsafe operations.
+ * - User listing is denied to protect user privacy.
+ * - Accident reports are publicly readable to facilitate data sharing and analysis.
+ * - Administrator privileges are not implemented in this prototype version.
  *
  * Denormalization for Authorization:
- *  N/A - No denormalization is used in this prototype.
- *
- * Structural Segregation:
- *  N/A - No structural segregation is used in this prototype.
+ * - Accident reports MUST contain a `userId` field to enable ownership checks for updates
+ *   and deletes. This avoids the need for complex queries or function calls in the rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces access control for user profiles.
+     * @description Manages user profiles. Only the user can read and write their own profile.
      * @path /users/{userId}
-     * @allow (create) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can create their own profile.
-     * @deny (create) User jcQlCDKhymRLjV2gJjgAN7bXAzi3 cannot create profile for user jcQlCDKhymRLjV2gJjgAN7bXAzi2.
-     * @allow (get, list) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can read their own profile.
-     * @deny (get, list) User jcQlCDKhymRLjV2gJjgAN7bXAzi3 cannot read profile of user jcQlCDKhymRLjV2gJjgAN7bXAzi2.
-     * @allow (update) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can update their own profile.
-     * @deny (update) User jcQlCDKhymRLjV2gJjgAN7bXAzi3 cannot update profile of user jcQlCDKhymRLjV2gJjgAN7bXAzi2.
-     * @allow (delete) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can delete their own profile.
-     * @deny (delete) User jcQlCDKhymRLjV2gJjgAN7bXAzi3 cannot delete profile of user jcQlCDKhymRLjV2gJjgAN7bXAzi2.
-     * @principle Enforces document ownership for writes.
+     * @allow (create, update, get, list) if the user's UID matches the userId in the path.
+     * @deny (create, update, get, list) if the user's UID does not match the userId in the path.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow list: if false; // User listing is not permitted
+
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow update: if isOwner(userId) && resource.data.uid == userId;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Manages access to accident reports. Only authenticated users can create.
+     * @description Manages accident reports. Accident reports are publicly readable,
+     * but only the owner can create, update or delete them.
      * @path /accident_reports/{reportId}
-     * @allow (create) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can create a report.
-     * @deny (create) Unauthenticated user cannot create a report.
-     * @allow (get, list) Any authenticated user can read any report.
-     * @deny (update, delete) Only the report creator should be able to modify/delete.
-     * @principle Restricts write access to authenticated users.
+     * @allow (get, list) Allow anyone to read accident reports.
+     * @allow (create) Allow logged in user to create an accident report if the userId in the body matches the logged in user.
+     * @allow (update, delete) Allow logged in user to update or delete if they own the accident report.
+     * @deny (create, update, delete) if not owned by the logged in user.
+     * @principle Allows public reads with owner-only writes, enforcing ownership for all modifications.
      */
     match /accident_reports/{reportId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get, list: if true;
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId);
+      allow delete: if isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Restricts access to admin locations.
+     * @description Manages admin-curated locations. These locations are publicly readable,
+     * but only administrators can modify them.  Write operations are disabled in this prototype.
      * @path /admin_locations/{locationId}
-     * @allow (create) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can create an admin location.
-     * @deny (create) Unauthenticated user cannot create an admin location.
-     * @allow (get, list) Any authenticated user can read any admin location.
-     * @deny (update, delete) Only the location creator should be able to modify/delete.
-     * @principle Restricts write access to authenticated users.
+     * @allow (get, list) Allow anyone to read locations curated by administrators.
+     * @deny (create, update, delete) Prevent users from modifying admin curated locations.
+     * @principle Restricts write access to administrators (not implemented in this prototype).
      */
     match /admin_locations/{locationId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Controls access to accident guides.
+     * @description Manages accident guides. These guides are publicly readable,
+     * but only administrators can modify them. Write operations are disabled in this prototype.
      * @path /accident_guides/{guideId}
-     * @allow (create) User jcQlCDKhymRLjV2gJjgAN7bXAzi2 can create an accident guide.
-     * @deny (create) Unauthenticated user cannot create an accident guide.
-     * @allow (get, list) Any authenticated user can read any accident guide.
-     * @deny (update, delete) Only the guide creator should be able to modify/delete.
-     * @principle Restricts write access to authenticated users.
+     * @allow (get, list) Allow anyone to read accident management guides.
+     * @deny (create, update, delete) Prevent users from modifying accident management guides.
+     * @principle Restricts write access to administrators (not implemented in this prototype).
      */
     match /accident_guides/{guideId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
-  }
 
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
 
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
   }
 }
