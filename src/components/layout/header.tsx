@@ -26,7 +26,7 @@ import Logo from '@/components/logo';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
+import { useAuth as useFirebaseAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
 const navLinks = [
@@ -50,6 +50,7 @@ const navLinks = [
 function UserNav() {
     const { user, isAdmin } = useAuth();
     const router = useRouter();
+    const auth = useFirebaseAuth();
 
     const handleSignOut = async () => {
         await signOut(auth);
@@ -91,7 +92,7 @@ function UserNav() {
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const renderNavLink = (link: (typeof navLinks)[0], isMobile = false) => {
     if (link.authRequired && !user) {
@@ -208,7 +209,7 @@ export default function Header() {
               />
               <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
-            { user ? <UserNav /> : (
+            { !isLoading && (user ? <UserNav /> : (
                 <>
                     <Button variant="ghost" asChild>
                         <Link href="/login">Sign In</Link>
@@ -217,11 +218,11 @@ export default function Header() {
                         <Link href="/signup">Sign Up</Link>
                     </Button>
                 </>
-            )}
+            ))}
           </div>
 
           <div className="md:hidden flex items-center gap-2">
-            {user && <UserNav />}
+             {!isLoading && user && <UserNav />}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -254,7 +255,7 @@ export default function Header() {
                       />
                       <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     </div>
-                    { !user && (
+                    { !isLoading && !user && (
                       <div className='flex flex-col gap-2'>
                         <Button variant="outline" asChild className='w-full'>
                             <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>

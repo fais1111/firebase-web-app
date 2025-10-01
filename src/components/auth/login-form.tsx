@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   getAdditionalUserInfo,
+  GoogleAuthProvider,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { doc, setDoc } from 'firebase/firestore';
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
-import { auth, db, GoogleAuthProvider } from '@/lib/firebase/config';
+import { useAuth, useFirestore } from '@/firebase';
 import { FcGoogle } from 'react-icons/fc';
 
 const formSchema = z.object({
@@ -40,6 +41,8 @@ const formSchema = z.object({
 export default function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -86,8 +89,8 @@ export default function LoginForm() {
       const additionalInfo = getAdditionalUserInfo(result);
 
       // If it's a new user, save their data to Firestore
-      if (additionalInfo?.isNewUser) {
-        await setDoc(doc(db, 'users', user.uid), {
+      if (additionalInfo?.isNewUser && firestore) {
+        await setDoc(doc(firestore, 'users', user.uid), {
           email: user.email,
           createdAt: new Date(),
           uid: user.uid,

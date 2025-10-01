@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth as useAppAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
@@ -12,13 +12,12 @@ import {
 } from '@/components/ui/table';
 import { AlertTriangle, Users, MapPin, Flag, Check, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, type DocumentData, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { collection, getDocs, type DocumentData, doc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { useCollection } from 'react-firebase-hooks/firestore';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -43,10 +42,7 @@ interface AppUser extends DocumentData {
   email: string;
   displayName?: string;
   photoURL?: string;
-  createdAt: {
-    seconds: number;
-    nanoseconds: number;
-  };
+  createdAt: Timestamp;
 }
 
 const locationSchema = z.object({
@@ -58,7 +54,9 @@ const locationSchema = z.object({
 
 
 function LocationManager() {
-    const [locations, loading, error] = useCollection(collection(db, 'admin_locations'));
+    const firestore = useFirestore();
+    const locationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'admin_locations') : null, [firestore]);
+    const [locations, loading, error] = useCollection(locationsQuery);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof locationSchema>>({
         resolver: zodResolver(locationSchema),
@@ -66,8 +64,9 @@ function LocationManager() {
     });
 
     async function onSubmit(values: z.infer<typeof locationSchema>) {
-        const batch = writeBatch(db);
-        const newLocationRef = doc(collection(db, 'admin_locations'));
+        if (!firestore) return;
+        const batch = writeBatch(firestore);
+        const newLocationRef = doc(collection(firestore, 'admin_locations'));
         batch.set(newLocationRef, values);
         try {
             await batch.commit();
@@ -151,12 +150,17 @@ function LocationManager() {
 
 
 function AccidentReportsManager() {
-  const [reports, loading, error] = useCollection(collection(db, 'accident_reports'));
-  const [locations] = useCollection(collection(db, 'admin_locations'));
+  const firestore = useFirestore();
+  const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_reports') : null, [firestore]);
+  const locationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'admin_locations') : null, [firestore]);
+  
+  const [reports, loading, error] = useCollection(reportsQuery);
+  const [locations] = useCollection(locationsQuery);
   const { toast } = useToast();
   const [selectedLocation, setSelectedLocation] = useState('');
 
   const handleApprove = async (reportId: string, locationId: string) => {
+    if (!firestore) return;
     if (!locationId) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a location.' });
         return;
@@ -167,7 +171,7 @@ function AccidentReportsManager() {
         return;
     }
 
-    const reportRef = doc(db, 'accident_reports', reportId);
+    const reportRef = doc(firestore, 'accident_reports', reportId);
     try {
       await updateDoc(reportRef, {
         status: 'approved',
@@ -182,7 +186,8 @@ function AccidentReportsManager() {
   };
 
   const handleDeny = async (reportId: string) => {
-     const reportRef = doc(db, 'accident_reports', reportId);
+    if (!firestore) return;
+     const reportRef = doc(firestore, 'accident_reports', reportId);
     try {
       await updateDoc(reportRef, { status: 'denied' });
       toast({ title: 'Report Denied', description: 'The report has been marked as denied.' });
@@ -287,11 +292,13 @@ function AccidentReportsManager() {
 function UserManagement() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const firestore = useFirestore();
 
   useEffect(() => {
     async function fetchUsers() {
+      if (!firestore) return;
       try {
-        const usersCollection = collection(db, 'users');
+        const usersCollection = collection(firestore, 'users');
         const userSnapshot = await getDocs(usersCollection);
         const userList = userSnapshot.docs.map(
           (doc) => ({ ...doc.data(), uid: doc.id } as AppUser)
@@ -305,7 +312,7 @@ function UserManagement() {
     }
 
     fetchUsers();
-  }, []);
+  }, [firestore]);
 
     return (
         <Card>
@@ -352,7 +359,7 @@ function UserManagement() {
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      {user.createdAt ? format(new Date(user.createdAt.seconds * 1000), 'PPP') : 'N/A'}
+                      {user.createdAt ? format(user.createdAt.toDate(), 'PPP') : 'N/A'}
                     </TableCell>
                     <TableCell>{/* Action buttons go here */}</TableCell>
                   </TableRow>
@@ -407,7 +414,7 @@ function AccessDenied() {
 }
 
 export default function AdminPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin } = useAppAuth();
 
   return (
     <div className="container mx-auto px-4 py-12 md:py-16">

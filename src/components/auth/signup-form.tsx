@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   getAdditionalUserInfo,
   signInWithPopup,
+  GoogleAuthProvider,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db, GoogleAuthProvider } from '@/lib/firebase/config';
+import { useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { FcGoogle } from 'react-icons/fc';
 
@@ -43,6 +44,8 @@ const formSchema = z
 export default function SignUpForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,6 +57,7 @@ export default function SignUpForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!firestore) return;
     try {
       // 1. Create user with Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
@@ -64,7 +68,7 @@ export default function SignUpForm() {
       const user = userCredential.user;
 
       // 2. Save user information to Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+      await setDoc(doc(firestore, 'users', user.uid), {
         email: user.email,
         createdAt: new Date(),
         uid: user.uid,
@@ -98,6 +102,7 @@ export default function SignUpForm() {
   }
 
   async function handleGoogleSignIn() {
+    if (!firestore) return;
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -106,7 +111,7 @@ export default function SignUpForm() {
 
       // If it's a new user, save their data to Firestore
       if (additionalInfo?.isNewUser) {
-        await setDoc(doc(db, 'users', user.uid), {
+        await setDoc(doc(firestore, 'users', user.uid), {
           email: user.email,
           createdAt: new Date(),
           uid: user.uid,

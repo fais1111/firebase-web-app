@@ -26,10 +26,9 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import Link from 'next/link';
 import { addDoc, collection, serverTimestamp, where, query } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, MapPin, CheckCircle, Loader2 } from 'lucide-react';
-import { useCollection } from 'react-firebase-hooks/firestore';
 import { format } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -46,6 +45,8 @@ const formSchema = z.object({
 function ReportAccidentForm() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const firestore = useFirestore();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -63,6 +64,7 @@ function ReportAccidentForm() {
       });
       return;
     }
+    if (!firestore) return;
 
     const reportData = {
         ...values,
@@ -72,7 +74,7 @@ function ReportAccidentForm() {
         status: 'reported',
     };
 
-    const reportsCollection = collection(db, 'accident_reports');
+    const reportsCollection = collection(firestore, 'accident_reports');
 
     addDoc(reportsCollection, reportData)
       .then(() => {
@@ -84,6 +86,7 @@ function ReportAccidentForm() {
         form.reset();
       })
       .catch((error) => {
+        console.error("Error submitting report: ", error);
         const permissionError = new FirestorePermissionError({
           path: reportsCollection.path,
           operation: 'create',
@@ -148,7 +151,14 @@ function ReportAccidentForm() {
               className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
               disabled={form.formState.isSubmitting}
             >
-              {form.formState.isSubmitting ? 'Submitting...' : 'Submit Report'}
+              {form.formState.isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Report'
+              )}
             </Button>
           </form>
         </Form>
@@ -158,10 +168,13 @@ function ReportAccidentForm() {
 }
 
 function ApprovedAccidentsFeed() {
-  const approvedReportsQuery = query(
-    collection(db, 'accident_reports'),
-    where('status', '==', 'approved')
-  );
+  const firestore = useFirestore();
+  const approvedReportsQuery = useMemoFirebase(() => 
+    firestore 
+      ? query(collection(firestore, 'accident_reports'), where('status', '==', 'approved'))
+      : null
+  , [firestore]);
+  
   const [reports, loading, error] = useCollection(approvedReportsQuery);
 
   return (
