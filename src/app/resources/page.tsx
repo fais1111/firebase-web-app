@@ -10,37 +10,12 @@ import Link from 'next/link';
 const resourceCategories = {
   'Government Agencies': [
     {
-      name: 'Ready.gov',
-      url: 'https://www.ready.gov/',
-      description: 'Official U.S. government site for emergency preparedness information.',
-    },
-    {
-      name: 'FEMA',
-      url: 'https://www.fema.gov/',
-      description: 'Federal Emergency Management Agency (USA) website.',
-    },
-    {
-      name: 'CDC Emergency Preparedness',
-      url: 'https://emergency.cdc.gov/',
-      description: 'Centers for Disease Control and Prevention (USA) resources for public health emergencies.',
-    },
-    {
       name: 'Disaster Management Centre (Sri Lanka)',
       url: 'http://www.dmc.gov.lk/',
       description: 'The official government body for disaster management in Sri Lanka.',
     },
   ],
   'Mental Health Support': [
-    {
-      name: 'NAMI (National Alliance on Mental Illness)',
-      url: 'https://www.nami.org/',
-      description: 'Advocacy, education, support and public awareness for mental illness in the U.S.',
-    },
-    {
-      name: 'SAMHSA National Helpline',
-      url: 'https://www.samhsa.gov/find-help/national-helpline',
-      description: 'U.S. based free, confidential, 24/7, 365-day-a-year treatment referral and information service.',
-    },
     {
       name: 'National Institute of Mental Health (Sri Lanka)',
       url: 'https://www.nimh.health.gov.lk/',
@@ -53,16 +28,6 @@ const resourceCategories = {
     },
   ],
   'Cybersecurity': [
-    {
-      name: 'CISA (Cybersecurity & Infrastructure Security Agency)',
-      url: 'https://www.cisa.gov/',
-      description: 'U.S. agency leading the national effort to reduce risk to cyber and physical infrastructure.',
-    },
-    {
-      name: "StaySafeOnline.org",
-      url: 'https://staysafeonline.org/',
-      description: 'Powered by the National Cyber Security Alliance (USA), providing tips and resources.',
-    },
     {
       name: 'Sri Lanka CERT|CC',
       url: 'https://www.cert.gov.lk/',
