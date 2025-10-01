@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { AlertTriangle, Flag, Loader2, MapPin, Youtube } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,7 +52,7 @@ function GuideManager() {
         defaultValues: { title: "", description: "", youtubeUrl: "" }
     });
 
-    async function onSubmit(values: z.infer<typeof guideSchema>) {
+    function onSubmit(values: z.infer<typeof guideSchema>) {
         if (!firestore) return;
         
         const guidesCollection = collection(firestore, 'accident_guides');
@@ -62,7 +62,7 @@ function GuideManager() {
                 toast({ title: "Guide Added", description: "The new guide has been saved." });
                 form.reset();
             })
-            .catch(() => {
+            .catch((serverError) => {
                 const permissionError = new FirestorePermissionError({
                     path: guidesCollection.path,
                     operation: 'create',
@@ -152,7 +152,7 @@ function LocationManager() {
         defaultValues: { name: "", description: "" }
     });
 
-    async function onSubmit(values: z.infer<typeof locationSchema>) {
+    function onSubmit(values: z.infer<typeof locationSchema>) {
         if (!firestore) return;
         const locationsCollection = collection(firestore, 'admin_locations');
         
@@ -161,7 +161,7 @@ function LocationManager() {
                 toast({ title: "Location Added", description: "The new location has been saved." });
                 form.reset();
             })
-            .catch(() => {
+            .catch((serverError) => {
                  const permissionError = new FirestorePermissionError({
                     path: locationsCollection.path,
                     operation: 'create',
@@ -355,5 +355,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

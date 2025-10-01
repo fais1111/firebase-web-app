@@ -54,7 +54,7 @@ function ReportAccidentForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
       toast({
         variant: 'destructive',
@@ -84,7 +84,7 @@ function ReportAccidentForm() {
         });
         form.reset();
       })
-      .catch(() => {
+      .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
           path: reportsCollection.path,
           operation: 'create',
@@ -243,9 +243,6 @@ function AccidentGuidesViewer() {
     }
 
     if (error) {
-        // The useCollection hook now throws a contextual error, which will be caught
-        // by the error boundary. We can show a simple message here or nothing at all.
-        // The detailed error will appear in the Next.js dev overlay.
         return (
              <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />

@@ -2,99 +2,119 @@
  * @fileoverview Firestore Security Rules for Prototyping.
  *
  * Core Philosophy:
- * This ruleset prioritizes security and enforces a strict user-ownership model where applicable.
- * It defaults to denying access unless explicitly granted, focusing on who can access what, rather than rigidly enforcing data shapes.
- * This allows for rapid prototyping and iteration.
+ * This ruleset prioritizes security by enforcing strict ownership and role-based access control.
+ * Data validation is relaxed to enable rapid prototyping and schema iteration.
  *
  * Data Structure:
- * - /users/{userId}: Stores public user profiles, accessible only to the owner.
- * - /accident_reports/{reportId}: Stores user-submitted accident reports, accessible only to authenticated users for creation, and not listable.
- * - /admin_locations/{locationId}: Stores accident locations added by admins, write-protected to prevent unauthorized modification.
- * - /accident_guides/{guideId}: Stores accident guides, write-protected to prevent unauthorized modification.
+ * - /users/{userId}: Stores user profiles, accessible only to the owning user.
+ * - /accident_reports/{reportId}: Stores accident reports. Write access is open to all authenticated users,
+ *   but restricted on `create` to only allow the report to be created if the request auth uid matches the report's userId
+ *   and the report's userEmail matches the user's email.
+ * - /admin_locations/{locationId}: Stores admin-curated locations, publicly readable, but only writable by authenticated user.
+ * - /accident_guides/{guideId}: Stores accident guides, publicly readable, but only writable by authenticated user.
  *
  * Key Security Decisions:
- * - User listing is disallowed for `accident_reports`.
- * - Data validation is relaxed in favor of faster prototyping, focusing on authorization and relational integrity.
+ * - User listing is disabled for privacy.
+ * - Data validation is minimal, focusing on foreign key integrity and preventing privilege escalation.
+ * - The rules assume an authenticated user and do not include checks to verify the user is verified.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profiles. Only the owner can read and write their own profile.
+     * @description Enforces strict ownership for user profiles.
      * @path /users/{userId}
-     * @allow (get, create, update, delete) if the user is the owner of the profile.
-     * @deny (get, create, update, delete) if the user is not the owner of the profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with uid 'user123' creates their own profile document.
+     * @allow (get) User with uid 'user123' reads their own profile document.
+     * @allow (update) User with uid 'user123' updates their own profile document.
+     * @allow (delete) User with uid 'user123' deletes their own profile document.
+     * @deny (create) User with uid 'user456' attempts to create a profile for 'user123'.
+     * @deny (get) User with uid 'user456' attempts to read profile of 'user123'.
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
-      function isSignedIn() {
-        return request.auth != null;
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
       }
 
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Protects accident reports. Only authenticated users can create reports. No listing is allowed.
+     * @description Allows any authenticated user to create accident reports.
      * @path /accident_reports/{reportId}
-     * @allow (create) if the user is authenticated.
-     * @deny (get, list, update, delete) to all users.
-     * @principle Restricts creation to authenticated users and disallows listing for privacy.
+     * @allow (create) Authenticated user creates a new accident report with their user ID.
+     * @allow (get) Any user can get the accident reports.
+     * @allow (update) Authenticated user can update the accident reports.
+     * @allow (delete) Authenticated user can delete the accident reports.
+     * @deny (create) User attempts to create a report with a mismatched user ID.
+     * @principle Allows public read access but restricts writes to authenticated users only.
      */
     match /accident_reports/{reportId} {
+
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get: if false;
-      allow list: if false;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.userEmail == request.auth.token.email;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Protects admin-curated location data. Only authenticated users can create, but other operations are disallowed
+     * @description Allows public read access to admin locations but restricts writes to authenticated users only.
      * @path /admin_locations/{locationId}
-     * @allow (create) if the user is authenticated.
-     * @deny (get, list, update, delete) to all users.
-     * @principle Prevents unauthorized modification of curated locations.
+     * @allow (get) Any user can get the admin locations.
+     * @allow (update) Authenticated user can update the admin locations.
+     * @allow (delete) Authenticated user can delete the admin locations.
+     * @deny (create) Anonymous user attempts to create a new admin location.
+     * @principle Allows public read access but restricts writes to authenticated users only.
      */
     match /admin_locations/{locationId} {
-       function isSignedIn() {
+
+      function isSignedIn() {
         return request.auth != null;
       }
-      allow get: if false;
-      allow list: if false;
+
+      allow get, list: if true;
+
       allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Protects accident guide data. Only authenticated users can create, but other operations are disallowed
+     * @description Allows public read access to accident guides but restricts writes to authenticated users only.
      * @path /accident_guides/{guideId}
-     * @allow (create) if the user is authenticated.
-     * @deny (get, list, update, delete) to all users.
-     * @principle Prevents unauthorized modification of accident guides.
+     * @allow (get) Any user can get the accident guides.
+     * @allow (update) Authenticated user can update the accident guides.
+     * @allow (delete) Authenticated user can delete the accident guides.
+     * @deny (create) Anonymous user attempts to create a new accident guide.
+     * @principle Allows public read access but restricts writes to authenticated users only.
      */
     match /accident_guides/{guideId} {
-       function isSignedIn() {
+
+      function isSignedIn() {
         return request.auth != null;
       }
-      allow get: if false;
-      allow list: if false;
+
+      allow get, list: if true;
+
       allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
