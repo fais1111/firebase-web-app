@@ -56,7 +56,7 @@ const locationSchema = z.object({
 function LocationManager() {
     const firestore = useFirestore();
     const locationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'admin_locations') : null, [firestore]);
-    const [locations, loading, error] = useCollection(locationsQuery);
+    const { data: locations, isLoading: loading, error } = useCollection(locationsQuery);
     const { toast } = useToast();
     const form = useForm<z.infer<typeof locationSchema>>({
         resolver: zodResolver(locationSchema),
@@ -95,11 +95,11 @@ function LocationManager() {
                     {loading && <Skeleton className="h-10 w-full" />}
                     {error && <p className="text-destructive">Error loading locations.</p>}
                     <div className="space-y-2">
-                        {locations?.docs.map(loc => (
+                        {locations?.map(loc => (
                             <div key={loc.id} className="p-3 border rounded-md text-sm">
-                                <p className="font-bold">{loc.data().name}</p>
-                                <p className="text-muted-foreground">{loc.data().description}</p>
-                                <p className="text-xs text-muted-foreground">Lat: {loc.data().latitude}, Lng: {loc.data().longitude}</p>
+                                <p className="font-bold">{loc.name}</p>
+                                <p className="text-muted-foreground">{loc.description}</p>
+                                <p className="text-xs text-muted-foreground">Lat: {loc.latitude}, Lng: {loc.longitude}</p>
                             </div>
                         ))}
                     </div>
@@ -154,8 +154,8 @@ function AccidentReportsManager() {
   const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_reports') : null, [firestore]);
   const locationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'admin_locations') : null, [firestore]);
   
-  const [reports, loading, error] = useCollection(reportsQuery);
-  const [locations] = useCollection(locationsQuery);
+  const { data: reports, isLoading: loading, error } = useCollection(reportsQuery);
+  const { data: locations } = useCollection(locationsQuery);
   const { toast } = useToast();
   const [selectedLocation, setSelectedLocation] = useState('');
 
@@ -165,7 +165,7 @@ function AccidentReportsManager() {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a location.' });
         return;
     }
-    const locationDoc = locations?.docs.find(doc => doc.id === locationId);
+    const locationDoc = locations?.find(doc => doc.id === locationId);
     if (!locationDoc) {
         toast({ variant: 'destructive', title: 'Error', description: 'Selected location not found.' });
         return;
@@ -176,7 +176,7 @@ function AccidentReportsManager() {
       await updateDoc(reportRef, {
         status: 'approved',
         adminLocationId: locationId,
-        adminLocationName: locationDoc.data().name
+        adminLocationName: locationDoc.name
       });
       toast({ title: 'Report Approved', description: 'The report is now public.' });
     } catch (e) {
@@ -223,10 +223,9 @@ function AccidentReportsManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reports?.docs.map((doc) => {
-                const report = doc.data();
+              {reports?.map((report) => {
                 return (
-                  <TableRow key={doc.id}>
+                  <TableRow key={report.id}>
                     <TableCell>{report.userEmail || 'N/A'}</TableCell>
                     <TableCell>{report.reportDate ? format(report.reportDate.toDate(), 'PPP') : 'N/A'}</TableCell>
                     <TableCell>
@@ -256,8 +255,8 @@ function AccidentReportsManager() {
                                         <SelectValue placeholder="Select an Admin Location" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {locations?.docs.map(loc => (
-                                            <SelectItem key={loc.id} value={loc.id}>{loc.data().name}</SelectItem>
+                                        {locations?.map(loc => (
+                                            <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -267,10 +266,10 @@ function AccidentReportsManager() {
                                 <Button variant="ghost">Cancel</Button>
                                </DialogClose>
                                <DialogClose asChild>
-                                <Button variant="destructive" onClick={() => handleDeny(doc.id)}>Deny</Button>
+                                <Button variant="destructive" onClick={() => handleDeny(report.id)}>Deny</Button>
                                </DialogClose>
                                <DialogClose asChild>
-                                <Button onClick={() => handleApprove(doc.id, selectedLocation)}>Approve</Button>
+                                <Button onClick={() => handleApprove(report.id, selectedLocation)}>Approve</Button>
                                </DialogClose>
                             </DialogFooter>
                           </DialogContent>

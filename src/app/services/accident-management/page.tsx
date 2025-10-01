@@ -175,7 +175,7 @@ function ApprovedAccidentsFeed() {
       : null
   , [firestore]);
   
-  const [reports, loading, error] = useCollection(approvedReportsQuery);
+  const { data: reports, isLoading: loading, error } = useCollection(approvedReportsQuery);
 
   return (
     <div className="mt-12">
@@ -193,15 +193,14 @@ function ApprovedAccidentsFeed() {
         </Alert>
       )}
       <div className="space-y-6">
-        {!loading && reports?.docs.length === 0 && (
+        {!loading && reports?.length === 0 && (
           <p className="text-center text-muted-foreground">
             No approved accident reports at the moment.
           </p>
         )}
-        {reports?.docs.map((doc) => {
-          const report = doc.data();
+        {reports?.map((report) => {
           return (
-            <Card key={doc.id} className="bg-secondary/50">
+            <Card key={report.id} className="bg-secondary/50">
               <CardHeader>
                  <div className="flex justify-between items-start">
                     <div>
