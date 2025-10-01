@@ -1,95 +1,101 @@
 /**
- * @fileOverview
- * This ruleset enforces a strict user-ownership model for accident reports,
- * ensuring that users can only manage reports they have submitted. Admin-managed
- * locations are accessible to all users for reading, but only administrators
- * can create, update, or delete them (admin role to be defined).
+ * @file Firebase Security Rules for the application.
  *
- * Data Structure:
- * - /users/{userId}/accident_reports/{reportId}: Accident reports submitted by users, nested under their respective user IDs.
- * - /admin_locations/{locationId}: Locations added and managed by administrators.
- *
- * Key Security Decisions:
- * - Users can only create, read, update, and delete their own accident reports.
- * - Listing accident reports is restricted to the owner of the user ID.
- * - Admin locations are publicly readable but only modifiable by admins (TODO: admin role implementation).
- * - The 'userId' is denormalized into the accident_reports documents to allow owner checks without needing extra get() calls.
- *
- * Denormalization for Authorization:
- *   - Accident reports contain the `userId` of the submitting user, enabling
- *     direct ownership checks.
- *
- * Structural Segregation:
- *   - Accident reports are stored under user-specific subcollections, while admin
- *     locations are stored in a top-level collection, reflecting the difference
- *     in their ownership and access requirements.
+ * @corePhilosophy This ruleset prioritizes security by enforcing strict ownership and role-based access control. It assumes a public read / restricted write access pattern for accident reports and admin locations.
+ * @dataStructure The data is organized into three top-level collections: `users`, `accident_reports`, and `admin_locations`. User profiles are stored under `/users/{userId}`, accident reports are stored under `/accident_reports/{reportId}`, and admin locations under `/admin_locations/{locationId}`.
+ * @keySecurityDecisions
+ *   - Users can only read their own profile data, and can only create their profile using their own UID.
+ *   - Listing of users is disallowed to prevent data harvesting.
+ *   - Accident reports are publicly readable, but creating, updating, and deleting reports is restricted to authenticated users who are the owners of the report.
+ *   - Admin locations are publicly readable, but only administrators can create, update, and delete them. No admin role is yet defined, write access for admin locations is temporarily open.
+ * @denormalizationForAuthorization To avoid costly `get()` operations, the `AccidentReport` entity contains a `userId` field to easily verify ownership.
+ * @structuralSegregation N/A
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows users to manage their own accident reports.
-     * @path /users/{userId}/accident_reports/{reportId}
-     * @allow (create) User with UID 'user_abc' can create a new accident report with userId: 'user_abc'.
-     * @allow (get) User with UID 'user_abc' can read accident report 'report_123' under /users/user_abc/.
-     * @allow (update) User with UID 'user_abc' can update accident report 'report_123' under /users/user_abc/.
-     * @allow (delete) User with UID 'user_abc' can delete accident report 'report_123' under /users/user_abc/.
-     * @deny (create) User with UID 'user_xyz' cannot create an accident report under /users/user_abc/.
-     * @deny (get) User with UID 'user_xyz' cannot read accident reports under /users/user_abc/.
-     * @deny (update) User with UID 'user_xyz' cannot update accident report 'report_123' under /users/user_abc/.
-     * @deny (delete) User with UID 'user_xyz' cannot delete accident report 'report_123' under /users/user_abc/.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @description Controls access to user profile data.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth UID.
+     * @allow (get, update, delete) - Authenticated user can get, update, and delete their own profile if the userId matches their auth UID.
+     * @deny (list) - Listing all users is not allowed.
+     * @deny (create, update, delete) - Any other user cannot create, update, or delete another user's profile.
+     * @principle Enforces document ownership for user profiles.
      */
-    match /users/{userId}/accident_reports/{reportId} {
-      // Verified Identity: all authorization decisions must rely on request.auth as source of truth
+    match /users/{userId} {
+      //Function to check if the user is signed in
       function isSignedIn() {
         return request.auth != null;
       }
 
-      // Ownership: paths like /users/{userId}/...
+      //Function to check if the user id matches the authenticated user id.
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
-      // For destructive operations, create and use a dedicated helper function like `isExistingOwner(userId)` that combines the ownership check with the existence check `(isOwner(userId) && resource != null)`. This improves readability and prevents accidental omissions.
+      //Function to check if the user id matches the authenticated user id. and that the resource exists.
       function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && resource != null;
+        return isOwner(userId) && resource.data != null;
       }
 
-      // Permissions for reading data
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-
-      // Permissions for creating data
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-
-      // Permissions for updating data
-      allow update: if isExistingOwner(userId) && resource.data.userId == request.resource.data.userId;
-
-      // Permissions for deleting data
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == request.auth.uid;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to admin-managed locations, but restricts creation, updating, and deletion to administrators (TODO: Admin role).
+     * @description Controls access to accident reports.
+     * @path /accident_reports/{reportId}
+     * @allow (get, list) - Anyone can read accident reports.
+     * @allow (create) - Authenticated user can create an accident report with their user ID.
+     * @allow (update, delete) - Authenticated user can update or delete their own accident report.
+     * @deny (create, update, delete) -  Writes are forbidden if the user is not the owner.
+     * @principle Allows public read access with owner-only writes for accident reports.
+     */
+    match /accident_reports/{reportId} {
+
+      //Function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      //Function to check if the accident report is owned by the user ID
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      //Function to check if the user id matches the authenticated user id. and that the resource exists.
+      function isExistingOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.userId;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner();
+      allow delete: if isExistingOwner();
+    }
+
+    /**
+     * @description Controls access to admin locations.
      * @path /admin_locations/{locationId}
-     * @allow (get) Any user can read admin location 'location_123'.
-     * @allow (list) Any user can list admin locations.
-     * @deny (create) Non-admin user cannot create a new admin location. // TODO: implement admin role check
-     * @deny (update) Non-admin user cannot update admin location 'location_123'. // TODO: implement admin role check
-     * @deny (delete) Non-admin user cannot delete admin location 'location_123'. // TODO: implement admin role check
-     * @principle Allows public read access with owner-only writes pattern (requires an ownership field in the document).
+     * @allow (get, list) - Anyone can read admin locations.
+     * // TODO: The current rules do not enforce admin-only access for writing to admin locations. Add role-based access control.
+     * @allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @principle Allows public read access. Write access is currently disabled and must be secured with an admin role.
      */
     match /admin_locations/{locationId} {
-      // Permissions for reading data
-      allow get: if true;
-      allow list: if true;
 
-      // Permissions for creating, updating, and deleting data (ADMIN ONLY)
-      allow create: if false; // TODO: Add admin role validation
-      allow update: if false; // TODO: Add admin role validation
-      allow delete: if false; // TODO: Add admin role validation
+      //Function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }
