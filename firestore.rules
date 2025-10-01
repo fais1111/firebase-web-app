@@ -1,90 +1,98 @@
 /**
- * @file Firestore Security Rules
- * @core_philosophy This ruleset enforces a user-ownership model for user profiles,
- * while allowing public read access to accident reports and admin-curated locations.
- * Write access to accident reports is restricted to authenticated users,
- * and write access to admin-curated locations is not explicitly defined, defaulting to none.
- * @data_structure
- * - /users/{userId}: Stores public user profiles, accessible only to the user themselves.
- * - /accident_reports/{reportId}: Stores accident reports, publicly readable but writable only by authenticated users.
- * - /admin_locations/{locationId}: Stores admin-curated locations, read-only for all.
- * @key_security_decisions
- * - User profiles are strictly owned and controlled by each user.
- * - Accident reports are publicly readable to facilitate information sharing, but creation/modification is restricted.
- * - Listing of user documents is allowed to make it easier to build clients.
- * @denormalization_for_authorization N/A
- * @structural_segregation N/A
+ * @fileoverview Firestore Security Rules for Prototyping.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes rapid prototyping by focusing on authorization and skipping data validation.
+ * It uses a strict owner-only access model for user-specific data and allows public read access where appropriate.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles. Access is restricted to the owner.
+ * - /accident_reports/{reportId}: Stores accident reports. Public read, owner-only writes.
+ * - /admin_locations/{locationId}: Stores admin-curated accident locations. Public read.
+ * - /accident_guides/{guideId}: Stores accident guides. Public read.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - Public read access is granted to the accident_reports, admin_locations and accident_guides collections.
+ * - Data validation is skipped to allow for flexible schema changes during prototyping.
+ *
+ * Denormalization for Authorization:
+ * - Accident reports require the `userId` field to match `request.auth.uid` for write operations, this id is also used as the report's owner.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Enforces owner-only access for user profiles.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their profile if request.auth.uid == 'user123'.
-     * @allow (get) - User with UID 'user123' can read their profile.
-     * @allow (list) - Any user can list user documents.
-     * @allow (update) - User with UID 'user123' can update their profile.
-     * @allow (delete) - User with UID 'user123' can delete their profile.
-     * @deny (create) - User with UID 'user456' cannot create a profile for 'user123'.
-     * @deny (update) - User with UID 'user456' cannot update the profile of 'user123'.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) User with uid 'user123' can create their profile.
+     * @allow (get, list) User with uid 'user123' can read their own profile.
+     * @allow (update, delete) User with uid 'user123' can update/delete their own profile.
+     * @deny (create) User with uid 'user456' cannot create a profile with ID 'user123'.
+     * @deny (get, list) User with uid 'user456' cannot read profile with ID 'user123'.
+     * @deny (update, delete) User with uid 'user456' cannot update/delete profile with ID 'user123'.
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
-
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to accident report documents.
+     * @description Allows public read access to accident reports, but restricts writes to the owner.
      * @path /accident_reports/{reportId}
-     * @allow (get) - Any user can read an accident report.
-     * @allow (list) - Any user can list accident reports.
-     * @allow (create) - User with UID 'user123' can create a report.
-     * @deny (update) - User with UID 'user123' cannot update an accident report without custom claim.
-     * @deny (delete) - User with UID 'user123' cannot delete an accident report without custom claim.
-     * @principle Allows public read access but restricts write access to authenticated users.
+     * @allow (get, list) Any user (signed in or not) can read accident reports.
+     * @allow (create) User with uid 'user123' can create an accident report with userId 'user123'.
+     * @allow (update, delete) User with uid 'user123' can update/delete their own accident report.
+     * @deny (create) User with uid 'user456' cannot create an accident report with userId 'user123'.
+     * @deny (update, delete) User with uid 'user456' cannot update/delete accident report with userId 'user123'.
+     * @principle Allows public read access while enforcing owner-only access for writes.
      */
     match /accident_reports/{reportId} {
-      function isSignedIn() {
-        return request.auth != null;
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
       }
-
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if false;
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId);
+      allow delete: if isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Controls access to admin curated location documents.
+     * @description Allows public read access to admin-curated accident locations.
      * @path /admin_locations/{locationId}
-     * @allow (get) - Any user can read an admin location.
-     * @allow (list) - Any user can list admin locations.
-     * @deny (create) - No one can create an admin location by default.
-     * @deny (update) - No one can update an admin location by default.
-     * @deny (delete) - No one can delete an admin location by default.
-     * @principle Allows public read access but restricts write access (default deny).
+     * @allow (get, list) Any user (signed in or not) can read admin locations.
+     * @deny (create, update, delete) No user can create, update, or delete admin locations.
+     * @principle Provides read-only access to accident locations for all users.
      */
     match /admin_locations/{locationId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Allows public read access to accident management guides.
+     * @path /accident_guides/{guideId}
+     * @allow (get, list) Any user (signed in or not) can read accident guides.
+     * @deny (create, update, delete) No user can create, update, or delete accident guides.
+     * @principle Provides read-only access to accident guides for all users.
+     */
+    match /accident_guides/{guideId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
   }
 }
