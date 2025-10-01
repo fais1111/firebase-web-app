@@ -19,34 +19,34 @@ const heroImage = placeholderImages.placeholderImages.find(
 
 const newsArticles = [
   {
-    title: 'Essential Wildfire Safety Tips',
+    title: 'Your Ultimate Emergency Checklist',
     description:
-      'Wildfires are a growing threat. Learn how to prepare your home, create a defensible space, and have an evacuation plan ready. Stay informed about local alerts.',
+      'From basic kits to wildfire evacuation plans, our checklists ensure you\'re prepared for anything. Don\'t get caught unprepared—review and customize your list today.',
     image: {
-      url: 'https://picsum.photos/seed/wildfire/400/250',
-      hint: 'forest fire',
+      url: 'https://picsum.photos/seed/checklist/400/250',
+      hint: 'clipboard checklist',
     },
-    link: '#',
+    link: '/checklist',
   },
   {
-    title: 'Urban Survival: What You Need in Your Go-Bag',
+    title: 'Connect with a Supportive Community',
     description:
-      'City life has its own unique challenges during an emergency. We break down the essential items for your urban survival kit.',
+      'Share knowledge, ask questions, and connect with fellow survivors. Our community forum is the perfect place to learn from the real-world experiences of others.',
     image: {
-      url: 'https://picsum.photos/seed/gobag/400/250',
-      hint: 'backpack essentials',
+      url: 'https://picsum.photos/seed/community/400/250',
+      hint: 'people talking',
     },
-    link: '#',
+    link: '/community',
   },
   {
-    title: 'First Aid Basics: Treating Common Injuries',
+    title: 'Top Resources for Emergency Preparedness',
     description:
-      'From cuts and burns to sprains and fractures, knowing basic first aid can make all the difference. Refresh your knowledge with our guide.',
+      'We\'ve curated a list of trusted external resources, from government agencies to mental health support networks, to give you the most reliable information.',
     image: {
-      url: 'https://picsum.photos/seed/firstaid/400/250',
-      hint: 'first-aid kit',
+      url: 'https://picsum.photos/seed/resources/400/250',
+      hint: 'books library',
     },
-    link: '#',
+    link: '/resources',
   },
 ];
 
@@ -75,9 +75,9 @@ export default function Home() {
               Welcome to Survival Life — empowering you with the knowledge and
               tools to face any challenge with confidence.
             </p>
-            <Button asChild className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="/risk-assessment">
-                Assess Your Risk <ArrowRight className="ml-2" />
+             <Button asChild className="mt-8">
+              <Link href="/about">
+                Learn More About Us
               </Link>
             </Button>
           </div>
@@ -143,18 +143,17 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-headline font-bold">
-                Latest News & Updates
+                Valuable Articles & Guides
               </h2>
               <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-                Stay ahead with the latest articles, tips, and survival news from
-                our experts.
+                Explore our curated content to enhance your preparedness skills and knowledge.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {newsArticles.map((article, index) => (
                 <Card
                   key={index}
-                  className="overflow-hidden flex flex-col"
+                  className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-300"
                 >
                   <CardHeader className="p-0">
                     <div className="aspect-video relative">
@@ -174,9 +173,9 @@ export default function Home() {
                     <CardDescription className="mt-2 flex-grow">
                       {article.description}
                     </CardDescription>
-                    <Button asChild variant="link" className="p-0 mt-4 self-start">
+                    <Button asChild variant="link" className="p-0 mt-4 self-start text-base">
                       <Link href={article.link}>
-                        Read More <ArrowRight className="ml-2" />
+                        Explore Section <ArrowRight className="ml-2" />
                       </Link>
                     </Button>
                   </CardContent>
