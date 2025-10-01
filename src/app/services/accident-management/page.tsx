@@ -25,11 +25,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import Link from 'next/link';
-import { addDoc, collection, serverTimestamp, where, query } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, MapPin, CheckCircle, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -85,15 +84,13 @@ function ReportAccidentForm() {
         });
         form.reset();
       })
-      .catch((error) => {
-        console.error("Error submitting report: ", error);
+      .catch(() => {
         const permissionError = new FirestorePermissionError({
           path: reportsCollection.path,
           operation: 'create',
           requestResourceData: reportData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        // We don't show a toast here because the global listener will show the error overlay
       });
   }
 
@@ -104,7 +101,7 @@ function ReportAccidentForm() {
           Report an Accident
         </CardTitle>
         <CardDescription>
-          Help the community by reporting incidents you observe.
+          Help the community by reporting incidents you observe. Your report will be reviewed by an administrator.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,7 +112,7 @@ function ReportAccidentForm() {
               name="locationDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location</FormLabel>
+                  <FormLabel>Observed Location</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="e.g., Near the old oak tree on Main St."
@@ -123,7 +120,7 @@ function ReportAccidentForm() {
                     />
                   </FormControl>
                   <FormDescription>
-                    Describe where the accident occurred as clearly as possible.
+                    Describe where you saw the incident as clearly as possible.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -137,7 +134,7 @@ function ReportAccidentForm() {
                   <FormLabel>Description of Incident</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Describe what happened, any hazards, etc."
+                      placeholder="Describe what you observed, any hazards, etc."
                       className="resize-none"
                       {...field}
                     />
@@ -167,20 +164,20 @@ function ReportAccidentForm() {
   );
 }
 
-function ApprovedAccidentsFeed() {
+function AdminLocationsFeed() {
   const firestore = useFirestore();
-  const approvedReportsQuery = useMemoFirebase(() => 
+  const adminLocationsQuery = useMemoFirebase(() => 
     firestore 
-      ? query(collection(firestore, 'accident_reports'), where('status', '==', 'approved'))
+      ? collection(firestore, 'admin_locations')
       : null
   , [firestore]);
   
-  const { data: reports, isLoading: loading, error } = useCollection(approvedReportsQuery);
+  const { data: locations, isLoading: loading, error } = useCollection(adminLocationsQuery);
 
   return (
     <div className="mt-12">
       <h2 className="text-3xl font-headline font-bold text-center mb-8">
-        Community Reported Accidents
+        Known Accident Hotspots
       </h2>
       {loading && <Loader2 className="mx-auto h-8 w-8 animate-spin" />}
       {error && (
@@ -188,43 +185,31 @@ function ApprovedAccidentsFeed() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Could not load accident reports. Please try again later.
+            Could not load accident hotspots. Please try again later.
           </AlertDescription>
         </Alert>
       )}
       <div className="space-y-6">
-        {!loading && reports?.length === 0 && (
+        {!loading && locations?.length === 0 && (
           <p className="text-center text-muted-foreground">
-            No approved accident reports at the moment.
+            No known accident hotspots have been added by administrators yet.
           </p>
         )}
-        {reports?.map((report) => {
+        {locations?.map((location) => {
           return (
-            <Card key={report.id} className="bg-secondary/50">
+            <Card key={location.id} className="bg-secondary/50">
               <CardHeader>
                  <div className="flex justify-between items-start">
                     <div>
                         <CardTitle className="flex items-center gap-2">
-                            <CheckCircle className="text-primary h-5 w-5" />
-                            Accident Report
+                            <MapPin className="text-primary h-5 w-5" />
+                            {location.name}
                         </CardTitle>
-                        <CardDescription className='mt-2'>
-                            Reported by: {report.userEmail}
-                        </CardDescription>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                        {report.reportDate && format(report.reportDate.toDate(), 'PPP p')}
-                    </span>
                  </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p>{report.description}</p>
-                {report.adminLocationName && (
-                  <div className="flex items-center gap-2 text-sm font-medium p-3 bg-background rounded-md">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span>Location: {report.adminLocationName}</span>
-                  </div>
-                )}
+              <CardContent>
+                <p>{location.description}</p>
               </CardContent>
             </Card>
           );
@@ -253,7 +238,7 @@ export default function AccidentManagementPage() {
             Accident Management
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Report incidents and view community alerts.
+            Report incidents and view known community accident hotspots.
           </p>
         </div>
 
@@ -272,7 +257,7 @@ export default function AccidentManagementPage() {
             </AlertDescription>
           </Alert>
         )}
-        <ApprovedAccidentsFeed />
+        <AdminLocationsFeed />
       </div>
     </div>
   );

@@ -10,9 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Users, MapPin, Flag, Check, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { collection, getDocs, type DocumentData, doc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
+import { AlertTriangle, Users, MapPin, Flag } from 'lucide-react';
+import { useMemo } from 'react';
+import { collection, type DocumentData, writeBatch, doc, Timestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,21 +20,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 
 interface AppUser extends DocumentData {
@@ -47,9 +37,7 @@ interface AppUser extends DocumentData {
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
-    latitude: z.coerce.number(),
-    longitude: z.coerce.number(),
-    description: z.string().optional(),
+    description: z.string().min(10, "Description must be at least 10 characters long."),
 });
 
 
@@ -60,16 +48,14 @@ function LocationManager() {
     const { toast } = useToast();
     const form = useForm<z.infer<typeof locationSchema>>({
         resolver: zodResolver(locationSchema),
-        defaultValues: { name: "", latitude: 0, longitude: 0, description: "" }
+        defaultValues: { name: "", description: "" }
     });
 
     async function onSubmit(values: z.infer<typeof locationSchema>) {
         if (!firestore) return;
-        const batch = writeBatch(firestore);
         const newLocationRef = doc(collection(firestore, 'admin_locations'));
-        batch.set(newLocationRef, values);
         try {
-            await batch.commit();
+            await writeBatch(firestore).set(newLocationRef, values).commit();
             toast({ title: "Location Added", description: "The new location has been saved."});
             form.reset();
         } catch (e) {
@@ -82,10 +68,10 @@ function LocationManager() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-headline">
-            <MapPin /> Location Management
+            <MapPin /> Accident Location Management
           </CardTitle>
           <CardDescription>
-            Add or manage locations to associate with accident reports.
+            Add or manage locations where accidents frequently occur. This will be shown to users.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -99,7 +85,6 @@ function LocationManager() {
                             <div key={loc.id} className="p-3 border rounded-md text-sm">
                                 <p className="font-bold">{loc.name}</p>
                                 <p className="text-muted-foreground">{loc.description}</p>
-                                <p className="text-xs text-muted-foreground">Lat: {loc.latitude}, Lng: {loc.longitude}</p>
                             </div>
                         ))}
                     </div>
@@ -111,30 +96,14 @@ function LocationManager() {
                              <FormField control={form.control} name="name" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Location Name</FormLabel>
-                                    <FormControl><Input placeholder="e.g., Downtown Crossing" {...field} /></FormControl>
+                                    <FormControl><Input placeholder="e.g., Highway 17 & Main St" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                              )}/>
-                             <div className='flex gap-4'>
-                                <FormField control={form.control} name="latitude" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Latitude</FormLabel>
-                                        <FormControl><Input type="number" step="any" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                                <FormField control={form.control} name="longitude" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Longitude</FormLabel>
-                                        <FormControl><Input type="number" step="any" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                             </div>
                              <FormField control={form.control} name="description" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Description</FormLabel>
-                                    <FormControl><Input placeholder="Optional details" {...field} /></FormControl>
+                                    <FormLabel>Accident Type/Description</FormLabel>
+                                    <FormControl><Input placeholder="e.g., Frequent rear-end collisions" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                              )}/>
@@ -149,61 +118,20 @@ function LocationManager() {
 }
 
 
-function AccidentReportsManager() {
+function AccidentReportsViewer() {
   const firestore = useFirestore();
   const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_reports') : null, [firestore]);
-  const locationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'admin_locations') : null, [firestore]);
-  
-  const { data: reports, isLoading: loading, error } = useCollection(reportsQuery);
-  const { data: locations } = useCollection(locationsQuery);
-  const { toast } = useToast();
-  const [selectedLocation, setSelectedLocation] = useState('');
-
-  const handleApprove = async (reportId: string, locationId: string) => {
-    if (!firestore) return;
-    if (!locationId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a location.' });
-        return;
-    }
-    const locationDoc = locations?.find(doc => doc.id === locationId);
-    if (!locationDoc) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Selected location not found.' });
-        return;
-    }
-
-    const reportRef = doc(firestore, 'accident_reports', reportId);
-    try {
-      await updateDoc(reportRef, {
-        status: 'approved',
-        adminLocationId: locationId,
-        adminLocationName: locationDoc.name
-      });
-      toast({ title: 'Report Approved', description: 'The report is now public.' });
-    } catch (e) {
-      console.error(e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not approve report.' });
-    }
-  };
-
-  const handleDeny = async (reportId: string) => {
-    if (!firestore) return;
-     const reportRef = doc(firestore, 'accident_reports', reportId);
-    try {
-      await updateDoc(reportRef, { status: 'denied' });
-      toast({ title: 'Report Denied', description: 'The report has been marked as denied.' });
-    } catch (e) {
-      console.error(e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not deny report.' });
-    }
-  }
-
+  const { data: reports, isLoading: loading } = useCollection(reportsQuery);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-headline">
-          <Flag /> Accident Reports
+          <Flag /> Submitted Accident Reports
         </CardTitle>
+        <CardDescription>
+          This is a view-only list of all user-submitted reports.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -217,68 +145,27 @@ function AccidentReportsManager() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>User's Location Hint</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reports?.map((report) => {
-                return (
+              {reports?.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell>{report.userEmail || 'N/A'}</TableCell>
                     <TableCell>{report.reportDate ? format(report.reportDate.toDate(), 'PPP') : 'N/A'}</TableCell>
+                    <TableCell>{report.locationDescription}</TableCell>
                     <TableCell>
                         <p className='max-w-xs truncate'>{report.description}</p>
-                        <p className='text-muted-foreground text-xs'>Location: {report.locationDescription}</p>
                     </TableCell>
                     <TableCell>
                       <Badge variant={report.status === 'approved' ? 'default' : report.status === 'denied' ? 'destructive' : 'secondary'}>
                         {report.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {report.status === 'reported' && (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm">Review</Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Review Accident Report</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <p><strong>Description:</strong> {report.description}</p>
-                                <p><strong>User's Location Hint:</strong> {report.locationDescription}</p>
-                                <Select onValueChange={setSelectedLocation}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select an Admin Location" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {locations?.map(loc => (
-                                            <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <DialogFooter>
-                               <DialogClose asChild>
-                                <Button variant="ghost">Cancel</Button>
-                               </DialogClose>
-                               <DialogClose asChild>
-                                <Button variant="destructive" onClick={() => handleDeny(report.id)}>Deny</Button>
-                               </DialogClose>
-                               <DialogClose asChild>
-                                <Button onClick={() => handleApprove(report.id, selectedLocation)}>Approve</Button>
-                               </DialogClose>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                    </TableCell>
                   </TableRow>
-                )
-              })}
+              ))}
             </TableBody>
           </Table>
         )}
@@ -289,31 +176,11 @@ function AccidentReportsManager() {
 
 
 function UserManagement() {
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const firestore = useFirestore();
+  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const { data: users, isLoading: isLoading, error } = useCollection<AppUser>(usersQuery);
 
-  useEffect(() => {
-    async function fetchUsers() {
-      if (!firestore) return;
-      try {
-        const usersCollection = collection(firestore, 'users');
-        const userSnapshot = await getDocs(usersCollection);
-        const userList = userSnapshot.docs.map(
-          (doc) => ({ ...doc.data(), uid: doc.id } as AppUser)
-        );
-        setUsers(userList);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchUsers();
-  }, [firestore]);
-
-    return (
+  return (
         <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-headline">
@@ -327,18 +194,17 @@ function UserManagement() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : (
+          ) : error ? <p className='text-destructive'>Error loading users.</p> : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Joined Date</TableHead>
-                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {users?.map((user) => (
                   <TableRow key={user.uid}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -360,7 +226,6 @@ function UserManagement() {
                     <TableCell>
                       {user.createdAt ? format(user.createdAt.toDate(), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell>{/* Action buttons go here */}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -380,14 +245,13 @@ function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Welcome to the admin panel. Here you can manage users, content, and
-            other settings.
+            Welcome to the admin panel. Here you can manage locations and view user data.
           </p>
         </CardContent>
       </Card>
-
-      <AccidentReportsManager />
+      
       <LocationManager />
+      <AccidentReportsViewer />
       <UserManagement />
     </div>
   );

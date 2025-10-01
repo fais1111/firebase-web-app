@@ -26,8 +26,6 @@
         "reportDate": { "type": "string", "format": "date-time" },
         "description": { "type": "string" },
         "locationDescription": { "type": "string" },
-        "adminLocationId": { "type": "string" },
-        "adminLocationName": { "type": "string" },
         "status": {
           "type": "string",
           "enum": ["reported", "approved", "denied"]
@@ -39,14 +37,12 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AdminLocation",
       "type": "object",
-      "description": "Represents a location added by an administrator.",
+      "description": "Represents a location and accident type added by an administrator.",
       "properties": {
         "name": { "type": "string" },
-        "latitude": { "type": "number" },
-        "longitude": { "type": "number" },
         "description": { "type": "string" }
       },
-      "required": ["name", "latitude", "longitude"]
+      "required": ["name", "description"]
     }
   },
   "auth": {
@@ -67,7 +63,7 @@
       {
         "path": "/admin_locations/{locationId}",
         "schema": { "$ref": "#/entities/AdminLocation" },
-        "description": "Stores locations curated by administrators."
+        "description": "Stores accident hotspots curated by administrators."
       }
     ]
   }
