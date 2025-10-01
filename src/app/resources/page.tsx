@@ -17,36 +17,61 @@ const resourceCategories = {
     {
       name: 'FEMA',
       url: 'https://www.fema.gov/',
-      description: 'Federal Emergency Management Agency website.',
+      description: 'Federal Emergency Management Agency (USA) website.',
     },
     {
       name: 'CDC Emergency Preparedness',
       url: 'https://emergency.cdc.gov/',
-      description: 'Centers for Disease Control and Prevention resources for public health emergencies.',
+      description: 'Centers for Disease Control and Prevention (USA) resources for public health emergencies.',
+    },
+    {
+      name: 'Disaster Management Centre (Sri Lanka)',
+      url: 'http://www.dmc.gov.lk/',
+      description: 'The official government body for disaster management in Sri Lanka.',
     },
   ],
   'Mental Health Support': [
     {
       name: 'NAMI (National Alliance on Mental Illness)',
       url: 'https://www.nami.org/',
-      description: 'Advocacy, education, support and public awareness for mental illness.',
+      description: 'Advocacy, education, support and public awareness for mental illness in the U.S.',
     },
     {
       name: 'SAMHSA National Helpline',
       url: 'https://www.samhsa.gov/find-help/national-helpline',
-      description: 'Free, confidential, 24/7, 365-day-a-year treatment referral and information service.',
+      description: 'U.S. based free, confidential, 24/7, 365-day-a-year treatment referral and information service.',
+    },
+    {
+      name: 'National Institute of Mental Health (Sri Lanka)',
+      url: 'https://www.nimh.health.gov.lk/',
+      description: 'The main public mental health institution in Sri Lanka.',
+    },
+    {
+      name: 'Sumithrayo (Sri Lanka)',
+      url: 'https://www.sumithrayo.org/',
+      description: 'Provides confidential emotional support for those experiencing distress in Sri Lanka.',
     },
   ],
   'Cybersecurity': [
     {
       name: 'CISA (Cybersecurity & Infrastructure Security Agency)',
       url: 'https://www.cisa.gov/',
-      description: 'Leads the national effort to understand, manage, and reduce risk to our cyber and physical infrastructure.',
+      description: 'U.S. agency leading the national effort to reduce risk to cyber and physical infrastructure.',
     },
     {
       name: "StaySafeOnline.org",
       url: 'https://staysafeonline.org/',
-      description: 'Powered by the National Cyber Security Alliance, providing tips and resources.',
+      description: 'Powered by the National Cyber Security Alliance (USA), providing tips and resources.',
+    },
+    {
+      name: 'Sri Lanka CERT|CC',
+      url: 'https://www.cert.gov.lk/',
+      description: 'The Sri Lanka Computer Emergency Readiness Team, for cybersecurity incident response.',
+    },
+     {
+      name: 'ICTA Sri Lanka',
+      url: 'https://www.icta.lk/',
+      description: 'Information and Communication Technology Agency of Sri Lanka, driving digital transformation.',
     },
   ],
 };
