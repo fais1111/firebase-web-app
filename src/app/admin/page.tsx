@@ -15,7 +15,6 @@ import { useMemo } from 'react';
 import { collection, type DocumentData, doc, addDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,14 +24,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-
-interface AppUser extends DocumentData {
-  uid: string;
-  email: string;
-  displayName?: string;
-  photoURL?: string;
-  createdAt: { toDate: () => Date };
-}
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
@@ -186,73 +177,6 @@ function AccidentReportsViewer() {
   );
 }
 
-
-function UserManagement() {
-  const firestore = useFirestore();
-  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const { data: users, isLoading, error } = useCollection<AppUser>(usersQuery);
-
-  return (
-        <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-headline">
-            <Users /> User Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : error ? <p className='text-destructive'>Error loading users. Check security rules.</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Joined Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users?.map((user) => (
-                  <TableRow key={user.uid}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={user.photoURL} alt={user.displayName} />
-                          <AvatarFallback>
-                            {user.email?.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className='flex flex-col'>
-                         <span className="font-medium">
-                           {user.displayName || 'N/A'}
-                         </span>
-                         {user.email === 'techworldinfo98@gmail.com' && <Badge variant="destructive" className="w-fit">Admin</Badge>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      {user.createdAt ? format(user.createdAt.toDate(), 'PPP') : 'N/A'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!isLoading && users?.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">No users found.</TableCell>
-                    </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    )
-}
-
 function AdminDashboard() {
   return (
     <div className="space-y-8">
@@ -262,12 +186,11 @@ function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Welcome to the admin panel. Here you can manage users, accident reports, and known locations.
+            Welcome to the admin panel. Here you can manage accident reports, and known locations.
           </p>
         </CardContent>
       </Card>
       
-      <UserManagement />
       <AccidentReportsViewer />
       <LocationManager />
     </div>
