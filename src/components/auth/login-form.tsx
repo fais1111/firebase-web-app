@@ -62,15 +62,17 @@ export default function LoginForm() {
       });
       router.push('/');
     } catch (error: any) {
-      console.error('Error signing in:', error);
-
       let errorMessage = 'An unexpected error occurred during sign in.';
+      
       if (
         error.code === 'auth/user-not-found' ||
         error.code === 'auth/wrong-password' ||
         error.code === 'auth/invalid-credential'
       ) {
         errorMessage = 'Invalid email or password. Please try again.';
+      } else {
+        // Only log unexpected errors to the console
+        console.error('Error signing in:', error);
       }
 
       toast({
