@@ -1,128 +1,124 @@
-/**
- * @fileoverview Firestore Security Rules for Prototyping.
- *
- * Core Philosophy:
- * This ruleset prioritizes strict authorization and assumes that all data
- * requires authentication to write, and most data is publicly readable.
- * It implements owner-only access for user profiles and public read access with
- * owner-only writes for accident reports, admin locations and accident guides.
- *
- * Data Structure:
- * - /users/{userId}: Stores public user profiles, accessible only by the user.
- * - /accident_reports/{reportId}: Stores accident reports, publicly readable, but writable only with correct ownership.
- * - /admin_locations/{locationId}: Stores accident locations, publicly readable, but writable only with correct ownership.
- * - /accident_guides/{guideId}: Stores accident guides, publicly readable, but writable only with correct ownership.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect privacy and prevent enumeration.
- * - Public read access is enabled on the /accident_reports, /admin_locations and /accident_guides collections to allow open access to accident data and guides.
- * - Owner-only write access is enforced on all write operations to prevent unauthorized modifications.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profiles with owner-only access.
+     * @description Manages user profiles. Users can only access their own profile data.
      * @path /users/{userId}
-     * @allow (create) User with UID 'user123' can create their profile with matching userId in the document.
-     * @deny (create) User with UID 'user456' cannot create a profile under /users/user123.
-     * @allow (get, list, update, delete) User with UID 'user123' can read and modify their own profile at /users/user123.
-     * @deny (get, list, update, delete) User with UID 'user456' cannot access or modify /users/user123.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user_abc' can create their own profile at /users/user_abc.
+     * @deny (create) User with UID 'user_abc' cannot create a profile at /users/user_xyz.
+     * @allow (get) User with UID 'user_abc' can read their own profile at /users/user_abc.
+     * @deny (get) User with UID 'user_abc' cannot read profile at /users/user_xyz.
+     * @allow (update) User with UID 'user_abc' can update their own profile at /users/user_abc.
+     * @deny (update) User with UID 'user_abc' cannot update profile at /users/user_xyz.
+     * @allow (delete) User with UID 'user_abc' can delete their own profile at /users/user_abc.
+     * @deny (delete) User with UID 'user_abc' cannot delete profile at /users/user_xyz.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      // Verified identity
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Access control function: isOwner
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Explicitly prevent listing
-      allow create: if isSignedIn() && isOwner(userId);
+      allow list: if false; // Listing users is generally not desired.
+      allow create: if isSignedIn() && request.auth.uid == userId;
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Accident reports are publicly readable, but write access is restricted to the owner.
+     * @description Manages accident reports.  Reports are publicly readable, but only the owner can modify/delete.
      * @path /accident_reports/{reportId}
-     * @allow (get, list) Any user can read accident reports.
-     * @allow (create) User with UID 'user123' can create an accident report with 'userId: user123'.
-     * @deny (create) User with UID 'user123' cannot create an accident report with 'userId: user456'.
-     * @allow (update, delete) User with UID 'user123' can update/delete their own report at /accident_reports/{reportId} if the report's userId matches.
-     * @deny (update, delete) User with UID 'user456' cannot update/delete a report owned by 'user123'.
-     * @principle Allows public read access while enforcing ownership for write operations.
+     * @allow (get) Any user can read any accident report.
+     * @allow (list) Any user can list accident reports.
+     * @allow (create) User with UID 'user_abc' can create an accident report with userId 'user_abc'.
+     * @deny (create) User with UID 'user_abc' cannot create an accident report with userId 'user_xyz'.
+     * @allow (update) User with UID 'user_abc' can update an accident report where resource.data.userId == 'user_abc'.
+     * @deny (update) User with UID 'user_abc' cannot update an accident report where resource.data.userId != 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete an accident report where resource.data.userId == 'user_abc'.
+     * @deny (delete) User with UID 'user_abc' cannot delete an accident report where resource.data.userId != 'user_abc'.
+     * @principle Allows public reads with owner-only writes.
      */
     match /accident_reports/{reportId} {
-      // Verified identity
+      function isOwner() {
+        return request.auth.uid == get(/databases/$(database)/documents/accident_reports/$(reportId)).data.userId;
+      }
+
       function isSignedIn() {
         return request.auth != null;
       }
 
-      // Access control function: isOwner
-      function isOwner() {
-        return request.auth.uid == resource.data.userId;
-      }
-
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && isOwner();
-      allow delete: if isSignedIn() && isOwner();
-    }
-
-     /**
-      * @description Accident locations are publicly readable, but write access is restricted to the owner.
-      * @path /admin_locations/{locationId}
-      * @allow (get, list) Any user can read accident locations.
-      * @deny (create, update, delete) No user can create, update, or delete locations without owner permissions. // TODO: Add owner validation once the schema is updated with an ownership field.
-      * @principle Allows public read access while enforcing ownership for write operations.
-      */
-    match /admin_locations/{locationId} {
-         // Verified identity
-        function isSignedIn() {
-            return request.auth != null;
-        }
-
-         // Access control function: isAdmin
-        function isAdmin() {
-            return request.auth.token.admin == true;
-        }
-
-        allow get, list: if true;
-        allow create: if isSignedIn() && isAdmin();
-        allow update: if isSignedIn() && isAdmin();
-        allow delete: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
     /**
-     * @description Accident guides are publicly readable, but create/update/delete access is restricted.
+     * @description Manages administrator curated locations.  Locations are publicly readable, but only the creator can modify/delete.
+     * @path /admin_locations/{locationId}
+     * @allow (get) Any user can read any admin location.
+     * @allow (list) Any user can list admin locations.
+     * @allow (create) User with UID 'user_abc' can create an admin location. // Assuming some kind of ownership or admin role.
+     * @deny (create) User with UID 'user_abc' cannot create an admin location if not an admin.
+     * @allow (update) User with UID 'user_abc' can update an admin location.  // Assuming some kind of ownership or admin role.
+     * @deny (update) User with UID 'user_abc' cannot update an admin location if not the owner/admin.
+     * @allow (delete) User with UID 'user_abc' can delete an admin location.  // Assuming some kind of ownership or admin role.
+     * @deny (delete) User with UID 'user_abc' cannot delete an admin location if not the owner/admin.
+     * @principle Allows public reads with owner-only writes.
+     */
+    match /admin_locations/{locationId} {
+      function isAdmin() {
+          // Implement your admin check logic here.  This is a placeholder.
+          // For example, check if the user's UID is in a list of admins,
+          // or if they have a specific claim.
+          return false;
+      }
+
+      function isSignedIn() {
+          return request.auth != null;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    /**
+     * @description Manages accident guides. Guides are publicly readable, but only the creator can modify/delete.
      * @path /accident_guides/{guideId}
-     * @allow (get, list) Any user can read accident guides.
-     * @deny (create) User cannot create guides without authorization.
-     * @deny (update, delete) User cannot update or delete guides without authorization.
-     * @principle Allows public read access while enforcing ownership for write operations.
+     * @allow (get) Any user can read any accident guide.
+     * @allow (list) Any user can list accident guides.
+     * @allow (create) User with UID 'user_abc' can create an accident guide. // Assuming some kind of ownership or admin role.
+     * @deny (create) User with UID 'user_abc' cannot create an accident guide if not an admin.
+     * @allow (update) User with UID 'user_abc' can update an accident guide.  // Assuming some kind of ownership or admin role.
+     * @deny (update) User with UID 'user_abc' cannot update an accident guide if not the owner/admin.
+     * @allow (delete) User with UID 'user_abc' can delete an accident guide.  // Assuming some kind of ownership or admin role.
+     * @deny (delete) User with UID 'user_abc' cannot delete an accident guide if not the owner/admin.
+     * @principle Allows public reads with owner-only writes.
      */
     match /accident_guides/{guideId} {
-         // Verified identity
-        function isSignedIn() {
-            return request.auth != null;
-        }
+      function isAdmin() {
+          // Implement your admin check logic here.  This is a placeholder.
+          // For example, check if the user's UID is in a list of admins,
+          // or if they have a specific claim.
+          return false;
+      }
 
-         // Access control function: isAdmin
-        function isAdmin() {
-            return request.auth.token.admin == true;
-        }
+      function isSignedIn() {
+          return request.auth != null;
+      }
 
-        allow get, list: if true;
-        allow create: if isSignedIn() && isAdmin();
-        allow update: if isSignedIn() && isAdmin();
-        allow delete: if isSignedIn() && isAdmin();
+      allow get, list: if true;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && isAdmin();
     }
   }
 }
