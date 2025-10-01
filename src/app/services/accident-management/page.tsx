@@ -28,7 +28,7 @@ import Link from 'next/link';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, MapPin, CheckCircle, Loader2 } from 'lucide-react';
+import { AlertTriangle, MapPin, Loader2, Youtube } from 'lucide-react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -219,6 +219,78 @@ function AdminLocationsFeed() {
   );
 }
 
+function getYouTubeEmbedUrl(url: string): string | null {
+  if (!url) return null;
+
+  let videoId = null;
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const match = url.match(youtubeRegex);
+  
+  if (match) {
+    videoId = match[1];
+  }
+
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+}
+
+function AccidentGuidesViewer() {
+    const firestore = useFirestore();
+    const guidesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_guides') : null, [firestore]);
+    const { data: guides, isLoading, error } = useCollection(guidesQuery);
+
+    return (
+        <div className="mt-12">
+            <h2 className="text-3xl font-headline font-bold text-center mb-8">
+                Helpful Guides
+            </h2>
+            {isLoading && <Loader2 className="mx-auto h-8 w-8 animate-spin" />}
+            {error && (
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>Could not load guides. Please try again later.</AlertDescription>
+                </Alert>
+            )}
+            <div className="grid md:grid-cols-2 gap-8">
+                {!isLoading && guides?.length === 0 && (
+                    <p className="text-center text-muted-foreground md:col-span-2">No guides have been added yet.</p>
+                )}
+                {guides?.map((guide) => {
+                    const embedUrl = getYouTubeEmbedUrl(guide.youtubeUrl);
+                    return (
+                        <Card key={guide.id}>
+                             <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                  <Youtube className='text-red-600' />
+                                  {guide.title}
+                                </CardTitle>
+                                <CardDescription>{guide.description}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {embedUrl ? (
+                                    <div className="aspect-video rounded-lg overflow-hidden border">
+                                        <iframe
+                                            width="100%"
+                                            height="100%"
+                                            src={embedUrl}
+                                            title={guide.title}
+                                            frameBorder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-destructive">Invalid YouTube URL provided.</div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function AccidentManagementPage() {
   const { user, isLoading } = useAuth();
 
@@ -238,7 +310,7 @@ export default function AccidentManagementPage() {
             Accident Management
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
-            Report incidents and view known community accident hotspots.
+            Report incidents and view helpful guides and known community accident hotspots.
           </p>
         </div>
 
@@ -258,6 +330,7 @@ export default function AccidentManagementPage() {
           </Alert>
         )}
         <AdminLocationsFeed />
+        <AccidentGuidesViewer />
       </div>
     </div>
   );

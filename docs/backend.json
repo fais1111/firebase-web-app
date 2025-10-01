@@ -43,6 +43,18 @@
         "description": { "type": "string" }
       },
       "required": ["name", "description"]
+    },
+    "AccidentGuide": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AccidentGuide",
+      "type": "object",
+      "description": "Represents a guide for accident management, including a YouTube link.",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "youtubeUrl": { "type": "string", "format": "uri" }
+      },
+      "required": ["title", "description", "youtubeUrl"]
     }
   },
   "auth": {
@@ -64,6 +76,11 @@
         "path": "/admin_locations/{locationId}",
         "schema": { "$ref": "#/entities/AdminLocation" },
         "description": "Stores accident hotspots curated by administrators."
+      },
+      {
+        "path": "/accident_guides/{guideId}",
+        "schema": { "$ref": "#/entities/AccidentGuide" },
+        "description": "Stores accident management guides with YouTube links."
       }
     ]
   }
