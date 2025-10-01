@@ -10,9 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Users, MapPin, Flag } from 'lucide-react';
+import { AlertTriangle, Users, MapPin, Flag, Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
-import { collection, type DocumentData, writeBatch, doc, Timestamp } from 'firebase/firestore';
+import { collection, type DocumentData, doc, addDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,13 +26,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
-
 interface AppUser extends DocumentData {
   uid: string;
   email: string;
   displayName?: string;
   photoURL?: string;
-  createdAt: Timestamp;
+  createdAt: { toDate: () => Date };
 }
 
 const locationSchema = z.object({
@@ -53,9 +52,8 @@ function LocationManager() {
 
     async function onSubmit(values: z.infer<typeof locationSchema>) {
         if (!firestore) return;
-        const newLocationRef = doc(collection(firestore, 'admin_locations'));
         try {
-            await writeBatch(firestore).set(newLocationRef, values).commit();
+            await addDoc(collection(firestore, 'admin_locations'), values);
             toast({ title: "Location Added", description: "The new location has been saved."});
             form.reset();
         } catch (e) {
@@ -78,7 +76,12 @@ function LocationManager() {
             <div className='grid md:grid-cols-2 gap-8'>
                 <div>
                      <h3 className="font-semibold mb-4">Existing Locations</h3>
-                    {loading && <Skeleton className="h-10 w-full" />}
+                    {loading && (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                      </div>
+                    )}
                     {error && <p className="text-destructive">Error loading locations.</p>}
                     <div className="space-y-2">
                         {locations?.map(loc => (
@@ -87,6 +90,7 @@ function LocationManager() {
                                 <p className="text-muted-foreground">{loc.description}</p>
                             </div>
                         ))}
+                         {!loading && locations?.length === 0 && <p className="text-muted-foreground text-sm">No locations added yet.</p>}
                     </div>
                 </div>
                  <div>
@@ -107,7 +111,10 @@ function LocationManager() {
                                     <FormMessage />
                                 </FormItem>
                              )}/>
-                             <Button type="submit" disabled={form.formState.isSubmitting}>Add Location</Button>
+                             <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Add Location
+                            </Button>
                         </form>
                     </Form>
                 </div>
@@ -121,7 +128,7 @@ function LocationManager() {
 function AccidentReportsViewer() {
   const firestore = useFirestore();
   const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'accident_reports') : null, [firestore]);
-  const { data: reports, isLoading: loading } = useCollection(reportsQuery);
+  const { data: reports, isLoading: loading, error } = useCollection(reportsQuery);
 
   return (
     <Card>
@@ -139,7 +146,7 @@ function AccidentReportsViewer() {
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
-        ) : (
+        ) : error ? <p className="text-destructive">Error loading reports.</p> : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -166,6 +173,11 @@ function AccidentReportsViewer() {
                     </TableCell>
                   </TableRow>
               ))}
+               {!loading && reports?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">No reports submitted yet.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}
@@ -194,7 +206,7 @@ function UserManagement() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : error ? <p className='text-destructive'>Error loading users.</p> : (
+          ) : error ? <p className='text-destructive'>Error loading users. Check security rules.</p> : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -218,7 +230,7 @@ function UserManagement() {
                          <span className="font-medium">
                            {user.displayName || 'N/A'}
                          </span>
-                          {user.email === 'techworldinfo98@gmail.com' && <Badge variant="destructive" className="w-fit">Admin</Badge>}
+                         {user.email === 'techworldinfo98@gmail.com' && <Badge variant="destructive" className="w-fit">Admin</Badge>}
                         </div>
                       </div>
                     </TableCell>
@@ -228,6 +240,11 @@ function UserManagement() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {!loading && users?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">No users found.</TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -245,14 +262,14 @@ function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Welcome to the admin panel. Here you can manage locations and view user data.
+            Welcome to the admin panel. Here you can manage users, accident reports, and known locations.
           </p>
         </CardContent>
       </Card>
       
-      <LocationManager />
-      <AccidentReportsViewer />
       <UserManagement />
+      <AccidentReportsViewer />
+      <LocationManager />
     </div>
   );
 }
@@ -277,7 +294,16 @@ function AccessDenied() {
 }
 
 export default function AdminPage() {
-  const { isAdmin } = useAppAuth();
+  const { isAdmin, isLoading } = useAppAuth();
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto px-4 py-12 md:py-16 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            <p className="text-muted-foreground mt-2">Verifying access...</p>
+        </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 md:py-16">
