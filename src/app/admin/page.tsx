@@ -259,7 +259,7 @@ function AccidentReportsManager() {
                             </div>
                             <DialogFooter>
                                <DialogClose asChild>
-                                <Button variant="ghost">Cancel</DialogClose>
+                                <Button variant="ghost">Cancel</Button>
                                </DialogClose>
                                <DialogClose asChild>
                                 <Button variant="destructive" onClick={() => handleDeny(doc.id)}>Deny</Button>
