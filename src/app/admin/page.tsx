@@ -178,7 +178,7 @@ function AccidentReportsViewer() {
 function UserManagement() {
   const firestore = useFirestore();
   const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const { data: users, isLoading: isLoading, error } = useCollection<AppUser>(usersQuery);
+  const { data: users, isLoading, error } = useCollection<AppUser>(usersQuery);
 
   return (
         <Card>
