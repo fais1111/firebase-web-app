@@ -1,132 +1,99 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a multi-layered security model, balancing open access to resources with strict ownership and role-based restrictions where necessary.
+ * @file Overview
+ * This ruleset grants open access to all data, effectively disabling all security measures.
+ *
+ * Core Philosophy:
+ * The ruleset provides unrestricted read and write access to all collections and documents
+ * within the Firestore database. This is equivalent to running without any security rules.
  *
  * Data Structure:
- * - User profiles are stored under `/users/{userId}` and are only accessible to the owning user.
- * - Accident reports, admin locations, accident guides, therapists, appointments, and mental health resources are stored in top-level collections.
+ * The database contains several top-level collections: `users`, `accident_reports`,
+ * `admin_locations`, `accident_guides`, `therapists`, `appointments`, and `mental_health_resources`.
  *
  * Key Security Decisions:
- * - User listing is generally disallowed for privacy, except where explicitly required and secured (e.g., therapists).
- * - Public read access is granted to mental health resources, accident guides, and admin locations to promote general awareness and safety.
- * - Accident reports and appointments have write operations restricted to ensure proper authorization, but are open for read.
- *
- * Denormalization for Authorization:
- *   (Not applicable in this simplified model, but consider adding `userId` to accident reports or appointments for simplified owner-based rules in the future.)
- *
- * Structural Segregation:
- *   (Not applicable, but consider separating "draft" vs. "published" content into different collections if needed in the future.)
+ * - Unrestricted Access: All users, authenticated or not, can read, create, update,
+ *   and delete any data.
+ * - No Authentication Required: The rules do not validate user authentication.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Grants open read and write access to user profiles.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their profile at /users/user123.
-     * @allow (get, list, update, delete) - User with UID 'user123' can read, update, and delete their profile at /users/user123.
-     * @deny (create, get, list, update, delete) - Any other user cannot access /users/user123.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete user profiles.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get, list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to accident reports.
+     * @description Grants open read and write access to accident reports.
      * @path /accident_reports/{reportId}
-     * @allow (get, list) - Any authenticated user can list and get accident reports.
-     * @allow (create) - Any authenticated user can create an accident report.
-     * @deny (update, delete) - Only the owner can update or delete the accident report.
-     * @principle Allows public read access to accident reports while restricting write access.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete accident reports.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /accident_reports/{reportId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to admin locations.
+     * @description Grants open read and write access to admin locations.
      * @path /admin_locations/{locationId}
-     * @allow (get, list) - Any user can read admin locations.
-     * @deny (create, update, delete) - No user can create, update or delete admin locations.
-     * @principle Allows public read access to admin locations.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete admin locations.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /admin_locations/{locationId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to accident guides.
+     * @description Grants open read and write access to accident guides.
      * @path /accident_guides/{guideId}
-     * @allow (get, list) - Any user can read accident guides.
-     * @deny (create, update, delete) - No user can create, update or delete accident guides.
-     * @principle Allows public read access to accident guides.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete accident guides.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /accident_guides/{guideId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to therapist data.
+     * @description Grants open read and write access to therapists.
      * @path /therapists/{therapistId}
-     * @allow (get, list) - Any user can read therapist information.
-     * @deny (create, update, delete) - No user can create, update or delete therapist data.
-     * @principle Allows public read access to therapists.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete therapist profiles.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /therapists/{therapistId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to appointments.
+     * @description Grants open read and write access to appointments.
      * @path /appointments/{appointmentId}
-     * @allow (get, list) - Any authenticated user can list and get appointments.
-     * @allow (create) - Any authenticated user can create an appointment.
-     * @deny (update, delete) - Only the owner can update or delete the appointment.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete appointments.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /appointments/{appointmentId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Controls access to mental health resources.
+     * @description Grants open read and write access to mental health resources.
      * @path /mental_health_resources/{resourceId}
-     * @allow (get, list) - Any user can read mental health resources.
-     * @deny (create, update, delete) - No user can create, update or delete mental health resources.
-     * @principle Allows public read access to mental health resources.
+     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete mental health resources.
+     * @deny None. All requests are allowed.
+     * @principle No security restrictions enforced.
      */
     match /mental_health_resources/{resourceId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get, list, create, update, delete: if true;
     }
   }
 }
