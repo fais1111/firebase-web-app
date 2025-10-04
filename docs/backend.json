@@ -132,6 +132,48 @@
          "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "incidentType", "incidentDate", "description", "status", "createdAt"]
+    },
+    "DisasterReport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DisasterReport",
+      "type": "object",
+      "description": "A user-submitted report about a disaster incident.",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "incidentType": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "incidentType", "location", "description", "createdAt"]
+    },
+    "SOSReport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SOSReport",
+      "type": "object",
+      "description": "An emergency SOS alert from a user.",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "location": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "location", "createdAt"]
+    },
+    "SafeZone": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SafeZone",
+      "type": "object",
+      "description": "An admin-designated safe zone location.",
+      "properties": {
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "details": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "location", "details", "addedAt"]
     }
   },
   "auth": {
@@ -178,6 +220,21 @@
         "path": "/cyber_security_incidents/{incidentId}",
         "schema": { "$ref": "#/entities/CyberSecurityIncident" },
         "description": "Stores user-submitted cyber security incident reports."
+      },
+      {
+        "path": "/disaster_reports/{reportId}",
+        "schema": { "$ref": "#/entities/DisasterReport" },
+        "description": "Stores user-submitted disaster reports."
+      },
+      {
+        "path": "/sos_reports/{reportId}",
+        "schema": { "$ref": "#/entities/SOSReport" },
+        "description": "Stores emergency SOS alerts from users."
+      },
+      {
+        "path": "/safe_zones/{zoneId}",
+        "schema": { "$ref": "#/entities/SafeZone" },
+        "description": "Stores admin-designated safe zones."
       }
     ]
   }

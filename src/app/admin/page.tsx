@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth as useAppAuth } from '@/hooks/use-auth';
@@ -10,8 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert } from 'lucide-react';
-import { collection, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert, Siren, LifeBuoy } from 'lucide-react';
+import { collection, addDoc, doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -644,6 +645,163 @@ function CyberSecurityIncidentViewer() {
   );
 }
 
+const safeZoneSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters."),
+  location: z.string().min(5, "Location must be at least 5 characters."),
+  details: z.string().min(10, "Details must be at least 10 characters."),
+});
+
+function SafeZoneManager() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const safeZonesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'safe_zones') : null, [firestore]);
+    const { data: safeZones, isLoading, error } = useCollection(safeZonesCollection);
+
+    const form = useForm<z.infer<typeof safeZoneSchema>>({
+        resolver: zodResolver(safeZoneSchema),
+        defaultValues: { name: "", location: "", details: "" },
+    });
+
+    const handleDelete = async (id: string) => {
+        if (!firestore) return;
+        await deleteDoc(doc(firestore, "safe_zones", id));
+        toast({ title: "Safe Zone Deleted" });
+    };
+
+    function onSubmit(values: z.infer<typeof safeZoneSchema>) {
+        if (!safeZonesCollection) return;
+        addDoc(safeZonesCollection, {...values, addedAt: serverTimestamp()}).then(() => {
+            toast({ title: "Safe Zone Added" });
+            form.reset();
+        }).catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: safeZonesCollection.path,
+                operation: 'create',
+                requestResourceData: values,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><LifeBuoy /> Manage Safe Zones</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Safe Zone Name</FormLabel><FormControl><Input placeholder="e.g., Central Community Hall" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="location" render={({ field }) => (
+                           <FormItem><FormLabel>Location / Address</FormLabel><FormControl><Input placeholder="123 Main St, Townsville" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="details" render={({ field }) => (
+                            <FormItem><FormLabel>Details</FormLabel><FormControl><Textarea placeholder="e.g., Provides food, water, and medical aid." {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <Button type="submit" disabled={form.formState.isSubmitting}>Add Safe Zone</Button>
+                    </form>
+                </Form>
+                <div className="space-y-4">
+                    <h3 className="font-semibold">Existing Safe Zones</h3>
+                    {isLoading && <Loader2 className="animate-spin"/>}
+                    {error && <p className="text-destructive">Error loading safe zones.</p>}
+                    <div className="max-h-60 overflow-y-auto">
+                        <Table>
+                            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Location</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                                {safeZones?.map(zone => (
+                                    <TableRow key={zone.id}>
+                                        <TableCell>{zone.name}</TableCell>
+                                        <TableCell>{zone.location}</TableCell>
+                                        <TableCell className="text-right">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 /></Button></AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the safe zone.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(zone.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function SOSReportViewer() {
+    const firestore = useFirestore();
+    const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'sos_reports') : null, [firestore]);
+    const { data: reports, isLoading, error } = useCollection(reportsQuery);
+
+    if (isLoading) return <Skeleton className="h-64 w-full" />;
+    if (error) return <p className="text-destructive">Error loading SOS reports.</p>;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive"><Siren /> SOS Emergency Alerts</CardTitle>
+                <CardDescription>Urgent alerts submitted by users.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader><TableRow><TableHead>User</TableHead><TableHead>Location</TableHead><TableHead>Message</TableHead><TableHead>Time</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {reports?.map(report => (
+                            <TableRow key={report.id} className="bg-destructive/10">
+                                <TableCell>{report.userEmail}</TableCell>
+                                <TableCell>{report.location}</TableCell>
+                                <TableCell>{report.message || 'No message provided.'}</TableCell>
+                                <TableCell>{report.createdAt ? format(new Date(report.createdAt.seconds * 1000), 'Pp') : 'N/A'}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+function DisasterReportViewer() {
+    const firestore = useFirestore();
+    const reportsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'disaster_reports') : null, [firestore]);
+    const { data: reports, isLoading, error } = useCollection(reportsQuery);
+
+    if (isLoading) return <Skeleton className="h-64 w-full" />;
+    if (error) return <p className="text-destructive">Error loading disaster reports.</p>;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><AlertTriangle /> Disaster Incident Reports</CardTitle>
+                <CardDescription>User-submitted reports about ongoing disasters.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader><TableRow><TableHead>User</TableHead><TableHead>Type</TableHead><TableHead>Location</TableHead><TableHead>Description</TableHead><TableHead>Time</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {reports?.map(report => (
+                            <TableRow key={report.id}>
+                                <TableCell>{report.userEmail}</TableCell>
+                                <TableCell><Badge variant="secondary">{report.incidentType}</Badge></TableCell>
+                                <TableCell>{report.location}</TableCell>
+                                <TableCell className="max-w-xs truncate">{report.description}</TableCell>
+                                <TableCell>{report.createdAt ? format(new Date(report.createdAt.seconds * 1000), 'Pp') : 'N/A'}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function AdminDashboard() {
   return (
@@ -656,13 +814,18 @@ function AdminDashboard() {
             <p className="text-muted-foreground">Manage users, reports, and site content from this central dashboard.</p>
         </CardContent>
       </Card>
+      <SOSReportViewer />
       <div className="grid lg:grid-cols-2 gap-8">
-        <LocationManager />
+        <SafeZoneManager />
         <GuideManager />
       </div>
+       <div className="grid lg:grid-cols-2 gap-8">
+        <LocationManager />
+        <MentalHealthResourceManager />
+      </div>
+      <DisasterReportViewer />
       <ReportViewer />
       <TherapistManager />
-      <MentalHealthResourceManager />
       <CyberSecurityIncidentViewer />
       <AppointmentViewer />
       <UsersViewer />
