@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser } from 'lucide-react';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert } from 'lucide-react';
 import { collection, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
@@ -578,6 +578,73 @@ function AppointmentViewer() {
     );
 }
 
+function CyberSecurityIncidentViewer() {
+  const firestore = useFirestore();
+  const incidentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'cyber_security_incidents') : null, [firestore]);
+  const { data: incidents, isLoading, error } = useCollection(incidentsQuery);
+  const { toast } = useToast();
+
+  const updateStatus = async (id: string, status: string) => {
+    if (!firestore) return;
+    await updateDoc(doc(firestore, "cyber_security_incidents", id), { status });
+    toast({ title: "Incident Status Updated" });
+  };
+
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (error) return <p className="text-destructive">Error loading incidents.</p>;
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><ShieldAlert /> Cyber Security Incidents</CardTitle>
+        <CardDescription>Review and manage user-submitted cyber security incidents.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Incident Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {incidents?.map(incident => (
+              <TableRow key={incident.id}>
+                <TableCell>{incident.userEmail}</TableCell>
+                <TableCell><Badge variant="secondary">{incident.incidentType.replace('_', ' ')}</Badge></TableCell>
+                <TableCell className="max-w-xs truncate">{incident.description}</TableCell>
+                <TableCell>{incident.incidentDate ? format(new Date(incident.incidentDate.seconds * 1000), 'Pp') : 'N/A'}</TableCell>
+                <TableCell>
+                  <Badge variant={incident.status === 'resolved' ? 'default' : incident.status === 'investigating' ? 'secondary' : 'destructive'}>
+                    {incident.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                   <Select onValueChange={(value) => updateStatus(incident.id, value)} defaultValue={incident.status}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Update status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="reported">Reported</SelectItem>
+                        <SelectItem value="investigating">Investigating</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function AdminDashboard() {
   return (
     <div className="space-y-8">
@@ -596,6 +663,7 @@ function AdminDashboard() {
       <ReportViewer />
       <TherapistManager />
       <MentalHealthResourceManager />
+      <CyberSecurityIncidentViewer />
       <AppointmentViewer />
       <UsersViewer />
     </div>
@@ -641,5 +709,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
