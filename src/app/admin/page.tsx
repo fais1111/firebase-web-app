@@ -10,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2 } from 'lucide-react';
-import { collection, addDoc, doc, deleteDoc } from 'firebase/firestore';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video } from 'lucide-react';
+import { collection, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,7 +37,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const locationSchema = z.object({
     name: z.string().min(3, "Name must be at least 3 characters."),
@@ -53,6 +54,244 @@ const guideSchema = z.object({
     ),
 });
 
+const mentalHealthResourceSchema = z.object({
+    title: z.string().min(5, "Title must be at least 5 characters."),
+    description: z.string().min(10, "Description must be at least 10 characters."),
+    type: z.enum(['article', 'video']),
+    url: z.string().url("Please enter a valid URL."),
+});
+
+function MentalHealthResourceManager() {
+    const firestore = useFirestore();
+    const resourcesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'mental_health_resources') : null, [firestore]);
+    const { data: resources, isLoading, error } = useCollection(resourcesQuery);
+    const { toast } = useToast();
+    const form = useForm<z.infer<typeof mentalHealthResourceSchema>>({
+        resolver: zodResolver(mentalHealthResourceSchema),
+        defaultValues: { title: "", description: "", type: 'article', url: "" }
+    });
+
+    async function onSubmit(values: z.infer<typeof mentalHealthResourceSchema>) {
+        if (!firestore) return;
+        
+        const resourcesCollection = collection(firestore, 'mental_health_resources');
+        
+        addDoc(resourcesCollection, values)
+        .then(() => {
+          toast({ title: "Resource Added", description: "The new resource has been saved." });
+          form.reset();
+        })
+        .catch((serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: resourcesCollection.path,
+                operation: 'create',
+                requestResourceData: values,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
+    }
+
+    async function handleDelete(resourceId: string) {
+        if (!firestore) return;
+        const resourceDoc = doc(firestore, 'mental_health_resources', resourceId);
+        deleteDoc(resourceDoc)
+            .then(() => {
+                toast({ title: 'Resource Deleted', description: 'The resource has been removed.' });
+            })
+            .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: resourceDoc.path,
+                    operation: 'delete',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline">
+                    <FileText /> Mental Health Resource Management
+                </CardTitle>
+                <CardDescription>
+                    Add or remove articles and videos for the Suicide Prevention page.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className='grid md:grid-cols-2 gap-8'>
+                    <div>
+                        <h3 className="font-semibold mb-4">Existing Resources</h3>
+                        {isLoading && <div className="space-y-2"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>}
+                        {error && <p className="text-destructive">Error loading resources.</p>}
+                        <div className="space-y-2">
+                            {resources?.map(resource => (
+                                <div key={resource.id} className="flex items-center justify-between p-3 border rounded-md text-sm">
+                                    <div className="flex-1 overflow-hidden flex items-center gap-3">
+                                        {resource.type === 'video' ? <Video className='h-5 w-5 text-red-600' /> : <FileText className='h-5 w-5' />}
+                                        <div>
+                                            <p className="font-bold truncate">{resource.title}</p>
+                                            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="text-primary text-xs hover:underline truncate block">{resource.url}</a>
+                                        </div>
+                                    </div>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="ml-2 flex-shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the resource "{resource.title}".</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(resource.id)} className='bg-destructive hover:bg-destructive/90'>Delete</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            ))}
+                            {!isLoading && resources?.length === 0 && <p className="text-muted-foreground text-sm">No resources added yet.</p>}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold mb-4">Add New Resource</h3>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField control={form.control} name="title" render={({ field }) => (
+                                    <FormItem><FormLabel>Resource Title</FormLabel><FormControl><Input placeholder="e.g., Understanding Anxiety" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="type" render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Type</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl><SelectTrigger><SelectValue placeholder="Select a resource type" /></SelectTrigger></FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="article">Article</SelectItem>
+                                        <SelectItem value="video">Video</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}/>
+                                 <FormField control={form.control} name="url" render={({ field }) => (
+                                    <FormItem><FormLabel>URL</FormLabel><FormControl><Input placeholder="https://example.com/article" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="description" render={({ field }) => (
+                                    <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A short summary of the resource." {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <Button type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Resource</Button>
+                            </form>
+                        </Form>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+
+function TherapistManager() {
+    const firestore = useFirestore();
+    const therapistsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'therapists') : null, [firestore]);
+    const { data: therapists, isLoading, error } = useCollection(therapistsQuery);
+    const { toast } = useToast();
+
+    const handleUpdateStatus = async (therapistId: string, status: 'approved' | 'pending') => {
+        if (!firestore) return;
+        const therapistDoc = doc(firestore, 'therapists', therapistId);
+        try {
+            await updateDoc(therapistDoc, { status });
+            toast({ title: "Therapist Updated", description: `The therapist has been ${status}.` });
+        } catch (serverError: any) {
+            const permissionError = new FirestorePermissionError({ path: therapistDoc.path, operation: 'update', requestResourceData: { status } });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    };
+
+    const handleDelete = async (therapistId: string) => {
+        if (!firestore) return;
+        const therapistDoc = doc(firestore, 'therapists', therapistId);
+        try {
+            await deleteDoc(therapistDoc);
+            toast({ title: "Therapist Deleted", description: "The therapist has been removed." });
+        } catch (serverError: any) {
+            const permissionError = new FirestorePermissionError({ path: therapistDoc.path, operation: 'delete' });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    };
+
+    const pendingTherapists = therapists?.filter(t => t.status === 'pending') || [];
+    const approvedTherapists = therapists?.filter(t => t.status === 'approved') || [];
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline">
+                    <Users /> Therapist Management
+                </CardTitle>
+                <CardDescription>
+                    Approve new therapist registrations and manage existing therapists.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-8">
+                    <div>
+                        <h3 className="font-semibold mb-4">Pending Registrations</h3>
+                        {isLoading && <Skeleton className="h-24 w-full" />}
+                        {error && <p className="text-destructive">Error loading therapists.</p>}
+                        {pendingTherapists.length > 0 ? (
+                            <Table>
+                                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Specialization</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                                <TableBody>
+                                    {pendingTherapists.map(therapist => (
+                                        <TableRow key={therapist.id}>
+                                            <TableCell>{therapist.name}</TableCell>
+                                            <TableCell>{therapist.email}</TableCell>
+                                            <TableCell>{therapist.specialization}</TableCell>
+                                            <TableCell className="flex gap-2">
+                                                <Button size="sm" onClick={() => handleUpdateStatus(therapist.id, 'approved')}><CheckCircle2 className="mr-2 h-4 w-4" />Approve</Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />Deny</Button></AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently deny and delete the registration for {therapist.name}.</AlertDialogDescription></AlertDialogHeader>
+                                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(therapist.id)} className='bg-destructive hover:bg-destructive/90'>Deny & Delete</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            !isLoading && <p className="text-muted-foreground text-sm">No pending registrations.</p>
+                        )}
+                    </div>
+                     <div>
+                        <h3 className="font-semibold mb-4">Approved Therapists</h3>
+                        {isLoading && <Skeleton className="h-24 w-full" />}
+                        {approvedTherapists.length > 0 ? (
+                            <Table>
+                               <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Specialization</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                                <TableBody>
+                                    {approvedTherapists.map(therapist => (
+                                        <TableRow key={therapist.id}>
+                                            <TableCell>{therapist.name}</TableCell>
+                                            <TableCell>{therapist.email}</TableCell>
+                                            <TableCell>{therapist.specialization}</TableCell>
+                                            <TableCell>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />Delete</Button></AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete therapist {therapist.name}.</AlertDialogDescription></AlertDialogHeader>
+                                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(therapist.id)} className='bg-destructive hover:bg-destructive/90'>Delete</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                             !isLoading && <p className="text-muted-foreground text-sm">No approved therapists.</p>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 function GuideManager() {
     const firestore = useFirestore();
@@ -452,15 +691,17 @@ function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Welcome to the admin panel. Here you can manage accident reports, and known locations.
+            Welcome to the admin panel. Here you can manage accident reports, therapists, and other site content.
           </p>
         </CardContent>
       </Card>
       
       <UsersViewer />
+      <TherapistManager />
       <AccidentReportsViewer />
       <LocationManager />
       <GuideManager />
+      <MentalHealthResourceManager />
     </div>
   );
 }
