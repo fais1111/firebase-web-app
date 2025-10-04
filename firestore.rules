@@ -1,197 +1,228 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset allows full read and write access to all data.
- *   It should only be used in a prototyping environment where security is not a primary concern.
+ * @description This ruleset defines access control for the Firestore database based on a user-ownership model and role-based authorization.
  *
- * @dataStructure
- *   /users/{userId}: Stores user profiles.
- *   /accident_reports/{reportId}: Stores accident reports from all users.
- *   /admin_locations/{locationId}: Stores accident hotspots curated by administrators.
- *   /accident_guides/{guideId}: Stores accident management guides.
- *   /therapists/{therapistId}: Stores information about registered therapists.
- *   /appointments/{appointmentId}: Stores appointments booked by users.
- *   /mental_health_resources/{resourceId}: Stores mental health resources.
- *   /cyber_security_incidents/{incidentId}: Stores cyber security incident reports.
- *   /disaster_reports/{reportId}: Stores user-submitted disaster reports.
- *   /sos_reports/{reportId}: Stores emergency SOS alerts from users.
- *   /safe_zones/{zoneId}: Stores admin-designated safe zones.
+ * Core Philosophy:
+ *  - Strict user-ownership: Users can only read and write their own data in user-specific collections (e.g., /users/{userId}).
+ *  - Public read access: Certain collections (e.g., /accident_guides, /mental_health_resources) are publicly readable.
+ *  - Admin role:  The rules do not explicitly define admin roles, because the functionality is not availble in the IR.
+ *  - Data validation: Input data is not heavily validated in this prototyping phase. Only authorization-critical fields are checked.
  *
- * @keySecurityDecisions
- *   All read and write access is allowed.
+ * Data Structure:
+ *  - /users/{userId}: Stores user profiles.  Only the user can read/write their own profile.
+ *  - /accident_reports/{reportId}: Stores accident reports.  Publicly readable, but create/update/delete are restricted to the owner (userId) of the report.
+ *  - /admin_locations/{locationId}: Stores admin-defined accident locations. Publicly readable, write access not granted.
+ *  - /accident_guides/{guideId}: Stores accident guides.  Publicly readable, write access not granted.
+ *  - /therapists/{therapistId}: Stores therapist information. Publicly readable, write access not granted.
+ *  - /appointments/{appointmentId}: Stores appointment bookings. Publicly readable, write access not granted.
+ *  - /mental_health_resources/{resourceId}: Stores mental health resources.  Publicly readable, write access not granted.
+ *  - /cyber_security_incidents/{incidentId}: Stores cyber security incident reports.  Publicly readable, but create/update/delete are restricted to the owner (userId) of the report.
+ *  - /disaster_reports/{reportId}: Stores disaster reports. Publicly readable, but create/update/delete are restricted to the owner (userId) of the report.
+ *  - /sos_reports/{reportId}: Stores SOS reports. Publicly readable, but create/update/delete are restricted to the owner (userId) of the report.
+ *  - /safe_zones/{zoneId}: Stores safe zone locations.  Publicly readable, write access not granted.
  *
- * @denormalizationForAuthorization
- *   Not applicable, as all access is allowed.
- *
- * @structuralSegregation
- *   Not applicable, as all access is allowed.
+ * Key Security Decisions:
+ *  - User listing is disabled to prevent unauthorized data access.
+ *  - Public read access is granted to certain collections containing general information.
+ *  - Write access to several collections is restricted based on user ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows full read and write access to user profiles.
+     * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (create) Any authenticated user can create a profile.
-     * @allow (read) Any user can read a profile.
-     * @allow (update) Any user can update a profile.
-     * @allow (delete) Any user can delete a profile.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on user profiles.
+     * @allow (create) User with UID 'user123' can create their profile if request.auth.uid == 'user123'.
+     * @allow (get) User with UID 'user123' can read their profile.
+     * @deny (create) User with UID 'user456' cannot create a profile for 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the profile for 'user123'.
+     * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isSignedIn() && isOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Allows full read and write access to accident reports.
+     * @description Controls access to accident reports.
      * @path /accident_reports/{reportId}
-     * @allow (create) Any authenticated user can create an accident report.
-     * @allow (read) Any user can read an accident report.
-     * @allow (update) Any user can update an accident report.
-     * @allow (delete) Any user can delete an accident report.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on accident reports.
+     * @allow (get) Any user can read accident reports.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a report with userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the report with userId 'user123'.
+     * @principle Allows public read access but enforces ownership for writes.
      */
     match /accident_reports/{reportId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
     }
 
     /**
-     * @description Allows full read and write access to admin locations.
+     * @description Controls access to admin-defined locations.
      * @path /admin_locations/{locationId}
-     * @allow (create) Any authenticated user can create an admin location.
-     * @allow (read) Any user can read an admin location.
-     * @allow (update) Any user can update an admin location.
-     * @allow (delete) Any user can delete an admin location.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on admin locations.
+     * @allow (get) Any user can read admin locations.
+     * @deny (create) No one can create admin locations through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /admin_locations/{locationId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows full read and write access to accident guides.
+     * @description Controls access to accident guides.
      * @path /accident_guides/{guideId}
-     * @allow (create) Any authenticated user can create an accident guide.
-     * @allow (read) Any user can read an accident guide.
-     * @allow (update) Any user can update an accident guide.
-     * @allow (delete) Any user can delete an accident guide.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on accident guides.
+     * @allow (get) Any user can read accident guides.
+     * @deny (create) No one can create accident guides through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /accident_guides/{guideId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows full read and write access to therapists.
+     * @description Controls access to therapist information.
      * @path /therapists/{therapistId}
-     * @allow (create) Any authenticated user can create a therapist profile.
-     * @allow (read) Any user can read a therapist profile.
-     * @allow (update) Any user can update a therapist profile.
-     * @allow (delete) Any user can delete a therapist profile.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on therapists.
+     * @allow (get) Any user can read therapist information.
+     * @deny (create) No one can create therapist information through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /therapists/{therapistId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows full read and write access to appointments.
+     * @description Controls access to appointment bookings.
      * @path /appointments/{appointmentId}
-     * @allow (create) Any authenticated user can create an appointment.
-     * @allow (read) Any user can read an appointment.
-     * @allow (update) Any user can update an appointment.
-     * @allow (delete) Any user can delete an appointment.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on appointments.
+     * @allow (get) Any user can read appointment bookings.
+     * @deny (create) No one can create appointment bookings through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /appointments/{appointmentId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows full read and write access to mental health resources.
+     * @description Controls access to mental health resources.
      * @path /mental_health_resources/{resourceId}
-     * @allow (create) Any authenticated user can create a mental health resource.
-     * @allow (read) Any user can read a mental health resource.
-     * @allow (update) Any user can update a mental health resource.
-     * @allow (delete) Any user can delete a mental health resource.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on mental health resources.
+     * @allow (get) Any user can read mental health resources.
+     * @deny (create) No one can create mental health resources through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /mental_health_resources/{resourceId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows full read and write access to cyber security incidents.
+     * @description Controls access to cyber security incident reports.
      * @path /cyber_security_incidents/{incidentId}
-     * @allow (create) Any authenticated user can create a cyber security incident.
-     * @allow (read) Any user can read a cyber security incident.
-     * @allow (update) Any user can update a cyber security incident.
-     * @allow (delete) Any user can delete a cyber security incident.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on cyber security incidents.
+     * @allow (get) Any user can read cyber security incident reports.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a report with userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the report with userId 'user123'.
+     * @principle Allows public read access but enforces ownership for writes.
      */
     match /cyber_security_incidents/{incidentId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
     }
 
     /**
-     * @description Allows full read and write access to disaster reports.
+     * @description Controls access to disaster reports.
      * @path /disaster_reports/{reportId}
-     * @allow (create) Any authenticated user can create a disaster report.
-     * @allow (read) Any user can read a disaster report.
-     * @allow (update) Any user can update a disaster report.
-     * @allow (delete) Any user can delete a disaster report.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on disaster reports.
+     * @allow (get) Any user can read disaster reports.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a report with userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the report with userId 'user123'.
+     * @principle Allows public read access but enforces ownership for writes.
      */
     match /disaster_reports/{reportId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
     }
 
     /**
-     * @description Allows full read and write access to SOS reports.
+     * @description Controls access to SOS reports.
      * @path /sos_reports/{reportId}
-     * @allow (create) Any authenticated user can create an SOS report.
-     * @allow (read) Any user can read an SOS report.
-     * @allow (update) Any user can update an SOS report.
-     * @allow (delete) Any user can delete an SOS report.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on SOS reports.
+     * @allow (get) Any user can read SOS reports.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a report with userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the report with userId 'user123'.
+     * @principle Allows public read access but enforces ownership for writes.
      */
     match /sos_reports/{reportId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
     }
 
     /**
-     * @description Allows full read and write access to safe zones.
+     * @description Controls access to safe zones.
      * @path /safe_zones/{zoneId}
-     * @allow (create) Any authenticated user can create a safe zone.
-     * @allow (read) Any user can read a safe zone.
-     * @allow (update) Any user can update a safe zone.
-     * @allow (delete) Any user can delete a safe zone.
-     * @deny (none) No requests are denied.
-     * @principle Allows any operation on safe zones.
+     * @allow (get) Any user can read safe zones.
+     * @deny (create) No one can create safe zones through client-side rules.
+     * @principle Allows public read access but restricts write access.
      */
     match /safe_zones/{zoneId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

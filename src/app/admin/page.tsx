@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert, Siren, LifeBuoy } from 'lucide-react';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert, Siren, LifeBuoy, BookOpen } from 'lucide-react';
 import { collection, addDoc, doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
@@ -431,7 +431,7 @@ function TherapistManager() {
   )
 }
 
-const resourceSchema = z.object({
+const mentalHealthResourceSchema = z.object({
     title: z.string().min(5),
     description: z.string().min(10),
     type: z.enum(['article', 'video']),
@@ -444,8 +444,8 @@ function MentalHealthResourceManager() {
     const resourcesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'mental_health_resources') : null, [firestore]);
     const { data: resources, isLoading, error } = useCollection(resourcesCollection);
 
-    const form = useForm<z.infer<typeof resourceSchema>>({
-        resolver: zodResolver(resourceSchema),
+    const form = useForm<z.infer<typeof mentalHealthResourceSchema>>({
+        resolver: zodResolver(mentalHealthResourceSchema),
         defaultValues: { title: "", description: "", type: "article", url: "" },
     });
 
@@ -455,7 +455,7 @@ function MentalHealthResourceManager() {
         toast({ title: "Resource Deleted" });
     };
 
-    function onSubmit(values: z.infer<typeof resourceSchema>) {
+    function onSubmit(values: z.infer<typeof mentalHealthResourceSchema>) {
         if (!resourcesCollection) return;
         addDoc(resourcesCollection, values).then(() => {
             toast({ title: "Resource Added" });
@@ -537,6 +537,116 @@ function MentalHealthResourceManager() {
             </CardContent>
         </Card>
     )
+}
+
+const hubResourceSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters."),
+  url: z.string().url("Please enter a valid URL."),
+  description: z.string().min(10, "Description must be at least 10 characters."),
+  category: z.string().min(3, "Category is required."),
+});
+
+function ResourceHubManager() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const resourcesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'resources') : null, [firestore]);
+  const { data: resources, isLoading, error } = useCollection(resourcesCollection);
+
+  const form = useForm<z.infer<typeof hubResourceSchema>>({
+    resolver: zodResolver(hubResourceSchema),
+    defaultValues: { name: "", url: "", description: "", category: "" },
+  });
+
+  const handleDelete = async (id: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, "resources", id);
+    await deleteDoc(docRef);
+    toast({ title: "Resource Deleted" });
+  };
+
+  function onSubmit(values: z.infer<typeof hubResourceSchema>) {
+    if (!resourcesCollection) return;
+    addDoc(resourcesCollection, values).then(() => {
+      toast({ title: "Resource Added to Hub", description: "The new resource is now live." });
+      form.reset();
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: resourcesCollection.path,
+          operation: 'create',
+          requestResourceData: values,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><BookOpen /> Manage Resource Hub</CardTitle>
+        <CardDescription>Add, and delete resources from the main resource hub page.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem><FormLabel>Resource Name</FormLabel><FormControl><Input placeholder="e.g., FEMA Website" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="url" render={({ field }) => (
+              <FormItem><FormLabel>URL</FormLabel><FormControl><Input placeholder="https://www.fema.gov" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Official U.S. agency for disaster preparedness and response." {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="category" render={({ field }) => (
+              <FormItem><FormLabel>Category</FormLabel><FormControl><Input placeholder="e.g., Government Agencies" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <Button type="submit" disabled={form.formState.isSubmitting}>Add Resource</Button>
+          </form>
+        </Form>
+        <div className="space-y-4">
+          <h3 className="font-semibold">Existing Resources</h3>
+          {isLoading && <p>Loading...</p>}
+          {error && <p className="text-destructive">Error loading resources.</p>}
+          <div className="max-h-60 overflow-y-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                {resources?.map(resource => (
+                    <TableRow key={resource.id}>
+                    <TableCell>{resource.name}</TableCell>
+                    <TableCell><Badge variant="secondary">{resource.category}</Badge></TableCell>
+                    <TableCell className="text-right">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently delete the resource from the hub.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(resource.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function AppointmentViewer() {
@@ -817,10 +927,13 @@ function AdminDashboard() {
       <SOSReportViewer />
       <div className="grid lg:grid-cols-2 gap-8">
         <SafeZoneManager />
-        <GuideManager />
+        <ResourceHubManager />
       </div>
        <div className="grid lg:grid-cols-2 gap-8">
         <LocationManager />
+        <GuideManager />
+      </div>
+       <div className="grid lg:grid-cols-2 gap-8">
         <MentalHealthResourceManager />
       </div>
       <DisasterReportViewer />
