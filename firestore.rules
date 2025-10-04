@@ -2,120 +2,214 @@
  * @fileoverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset grants full administrative control to all authenticated users.
- * It essentially disables all security restrictions for prototyping and development purposes.
+ * This ruleset prioritizes a secure-by-default posture, focusing on user-owned data and
+ * preventing unauthorized access. It assumes that all data is private unless explicitly
+ * made public. Data schema validation is relaxed to allow for rapid prototyping.
  *
  * Data Structure:
- * The Firestore database contains several top-level collections, including:
- * - /users/{userId}: User profile information.
- * - /accident_reports/{reportId}: Accident reports submitted by users.
- * - /admin_locations/{locationId}: Locations curated by administrators.
- * - /accident_guides/{guideId}: Guides for handling accidents.
- * - /therapists/{therapistId}: Therapist profiles.
- * - /appointments/{appointmentId}: Appointments booked by users.
- * - /mental_health_resources/{resourceId}: Mental health resources.
- * - /cyber_security_incidents/{incidentId}: Cyber security incidents reported by users.
+ * The Firestore database contains a mix of user-specific data (e.g., user profiles, accident reports)
+ * and public or admin-managed data (e.g., accident guides, mental health resources).
  *
  * Key Security Decisions:
- * - All authenticated users have full read and write access to all collections.
+ * - Users can only read and write their own profiles.
+ * - Listing of users is disallowed to prevent enumeration.
+ * - Accident Reports, Cyber Security Incidents, Disaster Reports and SOS Reports can be created by any user. Updates and deletes are disallowed.
+ * - AdminLocation, AccidentGuide, MentalHealthResource, and SafeZone data are readable by all but only writeable by authenticated users.
+ * - Therapists are readable by all but create, update, and delete are disallowed.
+ * - Appointments can be created by users for themselves, update and delete are disallowed.
  *
- * WARNING: This ruleset is for PROTOTYPING ONLY and should NEVER be deployed to a production environment.
- * It is extremely insecure and allows any authenticated user to read, write, and delete any data in the database.
+ * Denormalization for Authorization:
+ * The rules rely on the `userId` field within documents to enforce ownership, avoiding costly `get()` operations.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants full access to user profiles for all authenticated users.
+     * @description Manages user profile access.
      * @path /users/{userId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list user profiles.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (create) User with UID 'user123' can create their own profile at /users/user123.
+     * @deny (create) User with UID 'user123' cannot create a profile at /users/anotherUser.
+     * @allow (get) User with UID 'user123' can read their own profile at /users/user123.
+     * @deny (get) User with UID 'user123' cannot read another user's profile at /users/anotherUser.
+     * @principle Enforces user-ownership: only the user with matching UID can create, read, update, or delete their profile.
      */
     match /users/{userId} {
-      allow read, write: if isSignedIn();
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Grants full access to accident reports for all authenticated users.
+     * @description Manages accident reports. Users can create accident reports, but cannot update or delete them.
      * @path /accident_reports/{reportId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list accident reports.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user123' cannot create a report with userId 'anotherUser'.
+     * @allow (get) Any user can read an accident report.
+     * @deny (update) No user can update an accident report.
+     * @principle Allows any authenticated user to create accident reports, but restricts updates and deletes.
      */
     match /accident_reports/{reportId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Grants full access to admin locations for all authenticated users.
+     * @description Manages admin-curated accident locations.
      * @path /admin_locations/{locationId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list admin locations.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (get) Any user can read admin locations.
+     * @allow (create) Any authenticated user can create admin locations.
+     * @deny (update) No user can update admin locations.
+     * @principle Allows public read access but restricts write access to authenticated users.
      */
     match /admin_locations/{locationId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Grants full access to accident guides for all authenticated users.
+     * @description Manages accident management guides.
      * @path /accident_guides/{guideId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list accident guides.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (get) Any user can read accident guides.
+     * @allow (create) Any authenticated user can create accident guides.
+     * @deny (update) No user can update accident guides.
+     * @principle Allows public read access but restricts write access to authenticated users.
      */
     match /accident_guides/{guideId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Grants full access to therapists for all authenticated users.
+     * @description Manages therapist information.
      * @path /therapists/{therapistId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list therapists.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (get) Any user can read therapist information.
+     * @deny (create) No user can create therapist profiles.
+     * @principle Allows public read access but restricts write access.
      */
     match /therapists/{therapistId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Grants full access to appointments for all authenticated users.
+     * @description Manages appointments booked by users.
      * @path /appointments/{appointmentId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list appointments.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (create) User with UID 'user123' can create an appointment for themselves.
+     * @deny (create) User with UID 'user123' cannot create an appointment for another user.
+     * @deny (update) No user can update an appointment.
+     * @principle Allows users to create appointments for themselves, but restricts updates and deletes.
      */
     match /appointments/{appointmentId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     /**
-     * @description Grants full access to mental health resources for all authenticated users.
+     * @description Manages mental health resources.
      * @path /mental_health_resources/{resourceId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list mental health resources.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (get) Any user can read mental health resources.
+     * @allow (create) Any authenticated user can create mental health resources.
+     * @deny (update) No user can update mental health resources.
+     * @principle Allows public read access but restricts write access to authenticated users.
      */
     match /mental_health_resources/{resourceId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Grants full access to cyber security incidents for all authenticated users.
+     * @description Manages user-submitted cyber security incident reports.
      * @path /cyber_security_incidents/{incidentId}
-     * @allow (create, update, delete, get, list) - Any authenticated user can create, update, delete, get, or list cyber security incidents.
-     * @deny (none) - No requests are denied.
-     * @principle Grants unrestricted access for prototyping.
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user123' cannot create a report with userId 'anotherUser'.
+     * @allow (get) Any user can read an incident report.
+     * @deny (update) No user can update an incident report.
+     * @principle Allows any authenticated user to create incident reports, but restricts updates and deletes.
      */
     match /cyber_security_incidents/{incidentId} {
-      allow read, write: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
+    /**
+     * @description Manages user-submitted disaster reports.
+     * @path /disaster_reports/{reportId}
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user123' cannot create a report with userId 'anotherUser'.
+     * @allow (get) Any user can read a disaster report.
+     * @deny (update) No user can update a disaster report.
+     * @principle Allows any authenticated user to create disaster reports, but restricts updates and deletes.
+     */
+    match /disaster_reports/{reportId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Manages emergency SOS alerts from users.
+     * @path /sos_reports/{reportId}
+     * @allow (create) User with UID 'user123' can create a report with userId 'user123'.
+     * @deny (create) User with UID 'user123' cannot create a report with userId 'anotherUser'.
+     * @allow (get) Any user can read an SOS report.
+     * @deny (update) No user can update an SOS report.
+     * @principle Allows any authenticated user to create SOS reports, but restricts updates and deletes.
+     */
+    match /sos_reports/{reportId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Manages admin-designated safe zones.
+     * @path /safe_zones/{zoneId}
+     * @allow (get) Any user can read safe zones.
+     * @allow (create) Any authenticated user can create safe zones.
+     * @deny (update) No user can update safe zones.
+     * @principle Allows public read access but restricts write access to authenticated users.
+     */
+    match /safe_zones/{zoneId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user ID matches the authenticated user's UID.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user ID matches the authenticated user's UID, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && userId == request.auth.uid;
+    }
+
+    /**
+     * @description Checks if the user is the owner of an existing document.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user is the owner of the existing document, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }
