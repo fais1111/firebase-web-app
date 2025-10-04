@@ -196,7 +196,7 @@ function ReportIncidentTab() {
 
     const form = useForm<z.infer<typeof reportSchema>>({
         resolver: zodResolver(reportSchema),
-        defaultValues: { incidentType: 'phishing', description: '' },
+        defaultValues: { incidentType: 'phishing', description: '', incidentDate: '' },
     });
 
     function onSubmit(values: z.infer<typeof reportSchema>) {
@@ -454,3 +454,5 @@ export default function CyberSecurityPage() {
     </div>
   );
 }
+
+    
