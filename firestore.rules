@@ -1,99 +1,192 @@
 /**
- * @file Overview
- * This ruleset grants open access to all data, effectively disabling all security measures.
- *
- * Core Philosophy:
- * The ruleset provides unrestricted read and write access to all collections and documents
- * within the Firestore database. This is equivalent to running without any security rules.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a mixed security model, balancing open read access with strict owner-based write control for user-generated content.
  *
  * Data Structure:
- * The database contains several top-level collections: `users`, `accident_reports`,
- * `admin_locations`, `accident_guides`, `therapists`, `appointments`, and `mental_health_resources`.
+ * - `/users/{userId}`: Stores user profiles, accessible only to the owning user.
+ * - `/accident_reports/{reportId}`: Stores accident reports. Publicly readable, but create/update/delete operations are restricted to the report's owner.
+ * - `/admin_locations/{locationId}`: Stores locations added by admins. Publicly readable. Write access is not defined, and thus denied.
+ * - `/accident_guides/{guideId}`: Stores accident guides. Publicly readable. Write access is not defined, and thus denied.
+ * - `/therapists/{therapistId}`: Stores therapist information. Publicly readable. Write access is not defined, and thus denied.
+ * - `/appointments/{appointmentId}`: Stores appointment information. Publicly readable. Write access is not defined, and thus denied.
+ * - `/mental_health_resources/{resourceId}`: Stores mental health resources. Publicly readable. Write access is not defined, and thus denied.
+ * - `/cyber_security_incidents/{incidentId}`: Stores cyber security incident reports. Publicly readable, but create/update/delete operations are restricted to the report's owner.
  *
  * Key Security Decisions:
- * - Unrestricted Access: All users, authenticated or not, can read, create, update,
- *   and delete any data.
- * - No Authentication Required: The rules do not validate user authentication.
+ * - User listing is generally disallowed for privacy.
+ * - Data validation is relaxed to allow for rapid prototyping, with the exception of critical authorization fields.
+ * - Public read access is granted to several collections, assuming that the data within them is intended for general consumption.
+ *
+ * Denormalization for Authorization:
+ * - The `AccidentReport` and `CyberSecurityIncident` entities both contain a `userId` field, which is used to enforce ownership for write operations. This avoids costly `get()` calls to a separate `/users/{userId}` document.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants open read and write access to user profiles.
+     * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete user profiles.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (create) User with UID 'user123' can create their profile with matching userId field.
+     * @allow (get) User with UID 'user123' can read their own profile.
+     * @allow (update) User with UID 'user123' can update their own profile.
+     * @allow (delete) User with UID 'user123' can delete their own profile.
+     * @deny (create) User with UID 'user456' cannot create a profile for userId 'user123'.
+     * @deny (get) User with UID 'user456' cannot read profile for userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update profile for userId 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete profile for userId 'user123'.
+     * @principle Enforces user ownership for profile data.
      */
     match /users/{userId} {
-      allow get, list, create, update, delete: if true;
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Grants open read and write access to accident reports.
+     * @description Controls access to accident report documents.
      * @path /accident_reports/{reportId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete accident reports.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read an accident report.
+     * @allow (list) Any user can list accident reports.
+     * @allow (create) User with UID 'user123' can create an accident report with matching userId field.
+     * @allow (update) User with UID 'user123' can update their own accident report.
+     * @allow (delete) User with UID 'user123' can delete their own accident report.
+     * @deny (create) User with UID 'user456' cannot create an accident report for userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update accident report for userId 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete accident report for userId 'user123'.
+     * @principle Allows public read access but enforces user ownership for writes.
      */
     match /accident_reports/{reportId} {
-      allow get, list, create, update, delete: if true;
+        function isOwner(report) {
+            return request.auth != null && request.auth.uid == report.userId;
+        }
+        function isExistingOwner(report) {
+            return isOwner(report) && resource != null;
+        }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data);
+      allow delete: if isExistingOwner(resource.data);
     }
 
     /**
-     * @description Grants open read and write access to admin locations.
+     * @description Controls access to admin location documents.
      * @path /admin_locations/{locationId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete admin locations.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read an admin location.
+     * @allow (list) Any user can list admin locations.
+     * @deny (create) No user can create an admin location.
+     * @deny (update) No user can update an admin location.
+     * @deny (delete) No user can delete an admin location.
+     * @principle Allows public read access but restricts all writes.
      */
     match /admin_locations/{locationId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants open read and write access to accident guides.
+     * @description Controls access to accident guide documents.
      * @path /accident_guides/{guideId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete accident guides.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read an accident guide.
+     * @allow (list) Any user can list accident guides.
+     * @deny (create) No user can create an accident guide.
+     * @deny (update) No user can update an accident guide.
+     * @deny (delete) No user can delete an accident guide.
+     * @principle Allows public read access but restricts all writes.
      */
     match /accident_guides/{guideId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants open read and write access to therapists.
+     * @description Controls access to therapist documents.
      * @path /therapists/{therapistId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete therapist profiles.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read therapist information.
+     * @allow (list) Any user can list therapists.
+     * @deny (create) No user can create therapist information.
+     * @deny (update) No user can update therapist information.
+     * @deny (delete) No user can delete therapist information.
+     * @principle Allows public read access but restricts all writes.
      */
     match /therapists/{therapistId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants open read and write access to appointments.
+     * @description Controls access to appointment documents.
      * @path /appointments/{appointmentId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete appointments.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read appointment information.
+     * @allow (list) Any user can list appointments.
+     * @deny (create) No user can create appointment information.
+     * @deny (update) No user can update appointment information.
+     * @deny (delete) No user can delete appointment information.
+     * @principle Allows public read access but restricts all writes.
      */
     match /appointments/{appointmentId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Grants open read and write access to mental health resources.
+     * @description Controls access to mental health resource documents.
      * @path /mental_health_resources/{resourceId}
-     * @allow (get, list, create, update, delete) Any user can read, create, update, or delete mental health resources.
-     * @deny None. All requests are allowed.
-     * @principle No security restrictions enforced.
+     * @allow (get) Any user can read a mental health resource.
+     * @allow (list) Any user can list mental health resources.
+     * @deny (create) No user can create a mental health resource.
+     * @deny (update) No user can update a mental health resource.
+     * @deny (delete) No user can delete a mental health resource.
+     * @principle Allows public read access but restricts all writes.
      */
     match /mental_health_resources/{resourceId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Controls access to cyber security incident documents.
+     * @path /cyber_security_incidents/{incidentId}
+     * @allow (get) Any user can read a cyber security incident.
+     * @allow (list) Any user can list cyber security incidents.
+     * @allow (create) User with UID 'user123' can create a cyber security incident with matching userId field.
+     * @allow (update) User with UID 'user123' can update their own cyber security incident.
+     * @allow (delete) User with UID 'user123' can delete their own cyber security incident.
+     * @deny (create) User with UID 'user456' cannot create an cyber security incident for userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update cyber security incident for userId 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete cyber security incident for userId 'user123'.
+     * @principle Allows public read access but enforces user ownership for writes.
+     */
+    match /cyber_security_incidents/{incidentId} {
+        function isOwner(incident) {
+            return request.auth != null && request.auth.uid == incident.userId;
+        }
+        function isExistingOwner(incident) {
+            return isOwner(incident) && resource != null;
+        }
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data);
+      allow delete: if isExistingOwner(resource.data);
     }
   }
 }
