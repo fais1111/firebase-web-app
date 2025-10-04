@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video } from 'lucide-react';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser } from 'lucide-react';
 import { collection, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
@@ -60,6 +60,70 @@ const mentalHealthResourceSchema = z.object({
     type: z.enum(['article', 'video']),
     url: z.string().url("Please enter a valid URL."),
 });
+
+function AppointmentViewer() {
+    const firestore = useFirestore();
+    const appointmentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'appointments') : null, [firestore]);
+    const { data: appointments, isLoading, error } = useCollection(appointmentsQuery);
+
+    const therapistsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'therapists') : null, [firestore]);
+    const { data: therapists } = useCollection(therapistsQuery);
+
+    const getTherapistName = (therapistId: string) => {
+        const therapist = therapists?.find(t => t.id === therapistId);
+        return therapist?.name || 'Unknown Therapist';
+    };
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline">
+                    <BookUser /> Appointment Bookings
+                </CardTitle>
+                <CardDescription>
+                    View and manage all appointments requested by users.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                 {isLoading && <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>}
+                 {error && <p className="text-destructive">Error loading appointments.</p>}
+                 {!isLoading && appointments?.length === 0 && <p className="text-center text-muted-foreground">No appointments have been booked yet.</p>}
+                 {!isLoading && appointments && appointments.length > 0 && (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Therapist</TableHead>
+                                <TableHead>Appointment Date</TableHead>
+                                <TableHead>Problem</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {appointments.map(appointment => (
+                                <TableRow key={appointment.id}>
+                                    <TableCell>{appointment.userName || appointment.userEmail}</TableCell>
+                                    <TableCell>{getTherapistName(appointment.therapistId)}</TableCell>
+                                    <TableCell>{appointment.appointmentDate ? format(new Date(appointment.appointmentDate.seconds * 1000), 'PPP p') : 'N/A'}</TableCell>
+                                    <TableCell><p className="max-w-xs truncate">{appointment.problemDescription}</p></TableCell>
+                                    <TableCell>
+                                        <Badge variant={
+                                            appointment.status === 'confirmed' ? 'default' :
+                                            appointment.status === 'completed' ? 'secondary' :
+                                            appointment.status === 'cancelled' ? 'destructive' :
+                                            'secondary'
+                                        }>{appointment.status}</Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                 )}
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function MentalHealthResourceManager() {
     const firestore = useFirestore();
@@ -233,13 +297,16 @@ function TherapistManager() {
                         {error && <p className="text-destructive">Error loading therapists.</p>}
                         {pendingTherapists.length > 0 ? (
                             <Table>
-                                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Specialization</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Specialization</TableHead><TableHead>Description</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {pendingTherapists.map(therapist => (
                                         <TableRow key={therapist.id}>
-                                            <TableCell>{therapist.name}</TableCell>
-                                            <TableCell>{therapist.email}</TableCell>
+                                            <TableCell>
+                                                <div className="font-medium">{therapist.name}</div>
+                                                <div className="text-sm text-muted-foreground">{therapist.email}</div>
+                                            </TableCell>
                                             <TableCell>{therapist.specialization}</TableCell>
+                                            <TableCell><p className="max-w-xs truncate">{therapist.description}</p></TableCell>
                                             <TableCell className="flex gap-2">
                                                 <Button size="sm" onClick={() => handleUpdateStatus(therapist.id, 'approved')}><CheckCircle2 className="mr-2 h-4 w-4" />Approve</Button>
                                                 <AlertDialog>
@@ -698,6 +765,7 @@ function AdminDashboard() {
       
       <UsersViewer />
       <TherapistManager />
+      <AppointmentViewer />
       <AccidentReportsViewer />
       <LocationManager />
       <GuideManager />
