@@ -110,6 +110,28 @@
         "url": { "type": "string", "format": "uri" }
       },
       "required": ["title", "description", "type", "url"]
+    },
+    "CyberSecurityIncident": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CyberSecurityIncident",
+      "type": "object",
+      "description": "Represents a user-submitted cyber security incident.",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "incidentType": {
+          "type": "string",
+          "enum": ["phishing", "malware", "scam", "identity_theft", "other"]
+        },
+        "incidentDate": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["reported", "investigating", "resolved"]
+        },
+         "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "incidentType", "incidentDate", "description", "status", "createdAt"]
     }
   },
   "auth": {
@@ -151,6 +173,11 @@
         "path": "/mental_health_resources/{resourceId}",
         "schema": { "$ref": "#/entities/MentalHealthResource" },
         "description": "Stores articles and videos for mental health support."
+      },
+      {
+        "path": "/cyber_security_incidents/{incidentId}",
+        "schema": { "$ref": "#/entities/CyberSecurityIncident" },
+        "description": "Stores user-submitted cyber security incident reports."
       }
     ]
   }
