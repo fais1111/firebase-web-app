@@ -31,13 +31,21 @@ import {
 import { format } from 'date-fns';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import 'leaflet/dist/leaflet.css';
 
 const reportSchema = z.object({
   incidentType: z.string().min(3, "Please specify the incident type."),
   location: z.string().min(5, "Please provide a location."),
   description: z.string().min(10, "Please provide a brief description."),
 });
+
+const DynamicMap = dynamic(
+  () => import('@/components/SafeZonesMap'),
+  { 
+    ssr: false,
+    loading: () => <Skeleton className="h-full w-full min-h-[400px] rounded-lg" />,
+  }
+);
+
 
 function DisasterReportForm() {
   const { user } = useAuth();
@@ -160,15 +168,6 @@ function SOSAlert() {
     );
 }
 
-const DynamicMap = dynamic(
-  () => import('@/components/SafeZonesMap'),
-  {
-    ssr: false,
-    loading: () => <Skeleton className="h-full w-full min-h-[400px] rounded-lg" />,
-  }
-);
-
-
 function SafeZones() {
     const firestore = useFirestore();
     const safeZonesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'safe_zones') : null, [firestore]);
@@ -275,3 +274,5 @@ export default function DisasterManagementPage() {
       </div>
     );
   }
+
+    

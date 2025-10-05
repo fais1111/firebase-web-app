@@ -39,7 +39,19 @@ function ChangeView({ center, zoom }: { center: L.LatLngExpression; zoom: number
 
 export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
   if (!safeZones || safeZones.length === 0) {
-    return <p className="text-center text-muted-foreground p-4">No safe zones available to display on the map.</p>;
+    // Set a default view if no zones are available
+    const defaultCenter: L.LatLngExpression = [6.9271, 79.8612]; // Default to Colombo, Sri Lanka
+    return (
+      <MapContainer center={defaultCenter} zoom={7} style={{ height: '100%', width: '100%' }} className="rounded-lg border">
+         <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+            <p className="text-center text-muted-foreground p-4">No safe zones available to display on the map.</p>
+        </div>
+      </MapContainer>
+    );
   }
 
   const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
@@ -62,3 +74,5 @@ export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
     </MapContainer>
   );
 }
+
+    
