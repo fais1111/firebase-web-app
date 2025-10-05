@@ -166,7 +166,7 @@ const DynamicMap = dynamic(
     new Promise((resolve) => {
       const { MapContainer, TileLayer, Marker, Popup } = require('react-leaflet');
       const L = require('leaflet');
-
+      
       const icon = new L.Icon({
         iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
         iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
