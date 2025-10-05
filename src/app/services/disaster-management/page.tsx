@@ -162,48 +162,52 @@ function SOSAlert() {
     );
 }
 
-const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
-    const { MapContainer, TileLayer, Marker, Popup } = require('react-leaflet');
-    const L = require('leaflet');
-    
-    const icon = new L.Icon({
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
+const DynamicMap = dynamic(
+  () =>
+    new Promise((resolve) => {
+      const { MapContainer, TileLayer, Marker, Popup } = require('react-leaflet');
+      const L = require('leaflet');
 
-  if (typeof window === 'undefined' || !safeZones || safeZones.length === 0) {
-    return null;
+      const icon = new L.Icon({
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+      });
+
+      const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
+        if (!safeZones || safeZones.length === 0) {
+          return null;
+        }
+        const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
+
+        return (
+          <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }} className="rounded-lg border z-0">
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {safeZones.map((zone) => (
+              <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
+                <Popup>
+                  <h4 className="font-bold">{zone.name}</h4>
+                  <p>{zone.details}</p>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        );
+      };
+      resolve(SafeZonesMap);
+    }),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[400px] w-full" />,
   }
-  // Default center of the map (can be adjusted)
-  const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
-
-  return (
-    <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }} className="rounded-lg border z-0">
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {safeZones.map(zone => (
-        <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
-          <Popup>
-            <h4 className="font-bold">{zone.name}</h4>
-            <p>{zone.details}</p>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
-};
-
-const DynamicMap = dynamic(() => Promise.resolve(SafeZonesMap), {
-  ssr: false,
-  loading: () => <Skeleton className="h-[400px] w-full" />,
-});
+);
 
 
 function SafeZones() {
