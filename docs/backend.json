@@ -187,6 +187,18 @@
         "category": { "type": "string" }
       },
       "required": ["name", "url", "description", "category"]
+    },
+    "NewsAndUpdate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NewsAndUpdate",
+      "type": "object",
+      "description": "An admin-created news or update post.",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "createdAt"]
     }
   },
   "auth": {
@@ -253,6 +265,11 @@
         "path": "/resources/{resourceId}",
         "schema": { "$ref": "#/entities/Resource" },
         "description": "Stores curated links for the resource hub page."
+      },
+      {
+        "path": "/news_and_updates/{newsId}",
+        "schema": { "$ref": "#/entities/NewsAndUpdate" },
+        "description": "Stores news and updates created by admins."
       }
     ]
   }

@@ -11,8 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert, Siren, LifeBuoy, BookOpen } from 'lucide-react';
-import { collection, addDoc, doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { AlertTriangle, Flag, Loader2, MapPin, Youtube, Users, Trash2, CheckCircle2, XCircle, FileText, Video, BookUser, ShieldAlert, Siren, LifeBuoy, BookOpen, Rss } from 'lucide-react';
+import { collection, addDoc, doc, deleteDoc, updateDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +40,110 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const newsSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters."),
+  content: z.string().min(20, "Content must be at least 20 characters."),
+});
+
+function NewsManager() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const newsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'news_and_updates') : null, [firestore]);
+  const newsQuery = useMemoFirebase(() => newsCollection ? query(newsCollection, orderBy('createdAt', 'desc')) : null, [newsCollection]);
+  const { data: newsItems, isLoading, error } = useCollection(newsQuery);
+
+  const form = useForm<z.infer<typeof newsSchema>>({
+    resolver: zodResolver(newsSchema),
+    defaultValues: { title: "", content: "" },
+  });
+
+  const handleDelete = async (id: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, "news_and_updates", id);
+    await deleteDoc(docRef);
+    toast({ title: "Post Deleted" });
+  };
+
+  function onSubmit(values: z.infer<typeof newsSchema>) {
+    if (!newsCollection) return;
+    addDoc(newsCollection, {...values, createdAt: serverTimestamp()}).then(() => {
+      toast({ title: "News Post Added" });
+      form.reset();
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: newsCollection.path,
+          operation: 'create',
+          requestResourceData: values,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Rss /> Manage News & Updates</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="title" render={({ field }) => (
+              <FormItem><FormLabel>Post Title</FormLabel><FormControl><Input placeholder="e.g., New Storm Warning Issued" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="content" render={({ field }) => (
+              <FormItem><FormLabel>Content</FormLabel><FormControl><Textarea placeholder="Full content of the news post." {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <Button type="submit" disabled={form.formState.isSubmitting}>Add Post</Button>
+          </form>
+        </Form>
+        <div className="space-y-4">
+          <h3 className="font-semibold">Existing Posts</h3>
+          {isLoading && <Loader2 className="animate-spin"/>}
+          {error && <p className="text-destructive">Error loading posts.</p>}
+          <div className="max-h-60 overflow-y-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                {newsItems?.map(item => (
+                    <TableRow key={item.id}>
+                    <TableCell className="max-w-xs truncate">{item.title}</TableCell>
+                    <TableCell>{item.createdAt ? format(new Date(item.createdAt.seconds * 1000), 'PPP') : 'N/A'}</TableCell>
+                    <TableCell className="text-right">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete the news post.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(item.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function UsersViewer() {
   const firestore = useFirestore();
@@ -926,14 +1030,15 @@ function AdminDashboard() {
       </Card>
       <SOSReportViewer />
       <div className="grid lg:grid-cols-2 gap-8">
+        <NewsManager />
         <SafeZoneManager />
+      </div>
+       <div className="grid lg:grid-cols-2 gap-8">
         <ResourceHubManager />
-      </div>
-       <div className="grid lg:grid-cols-2 gap-8">
         <LocationManager />
-        <GuideManager />
       </div>
        <div className="grid lg:grid-cols-2 gap-8">
+        <GuideManager />
         <MentalHealthResourceManager />
       </div>
       <DisasterReportViewer />

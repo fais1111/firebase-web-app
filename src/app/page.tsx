@@ -1,3 +1,6 @@
+
+'use client';
+
 import Image from 'next/image';
 import {
   Card,
@@ -7,11 +10,13 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, ArrowRight } from 'lucide-react';
+import { ArrowRight, Rss, Loader2, AlertTriangle } from 'lucide-react';
 import SignUpForm from '@/components/auth/signup-form';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import placeholderImages from '@/lib/placeholder-images.json';
 import Link from 'next/link';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 const heroImage = placeholderImages.placeholderImages.find(
   (img) => img.id === 'hero-mountain-peak'
@@ -49,6 +54,58 @@ const newsArticles = [
     link: '/resources',
   },
 ];
+
+
+function NewsAndUpdates() {
+  const firestore = useFirestore();
+  const newsQuery = useMemoFirebase(() => 
+    firestore 
+      ? query(collection(firestore, 'news_and_updates'), orderBy('createdAt', 'desc'), limit(5))
+      : null,
+    [firestore]
+  );
+  const { data: newsItems, isLoading, error } = useCollection(newsQuery);
+
+  return (
+     <section id="news-updates" className="py-16 md:py-24">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-headline font-bold">News & Updates</h2>
+          <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+            Stay informed with the latest news and updates from our team.
+          </p>
+        </div>
+
+        <div className="max-w-3xl mx-auto space-y-6">
+          {isLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+          {error && (
+             <div className="text-destructive-foreground bg-destructive/90 p-4 rounded-md flex items-center gap-4">
+              <AlertTriangle />
+              <p>Could not load news and updates. Please check back later.</p>
+            </div>
+          )}
+          {!isLoading && newsItems?.length === 0 && (
+            <p className="text-center text-muted-foreground">No news to display at the moment.</p>
+          )}
+          {newsItems?.map((item) => (
+            <Card key={item.id} className="bg-secondary/30">
+              <CardHeader>
+                <CardTitle className="font-headline text-xl">{item.title}</CardTitle>
+                <CardDescription>
+                  {item.createdAt ? format(new Date(item.createdAt.seconds * 1000), 'PPP') : 'Just now'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap">{item.content}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 export default function Home() {
   return (
@@ -115,28 +172,8 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* Community Reports */}
-        <section id="community" className="py-16 md:py-24">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-headline font-bold">
-              Community Reports
-            </h2>
-            <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-              Stay informed with real-time updates and reports from our global
-              community.
-            </p>
-            <div className="mt-8 max-w-3xl mx-auto">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>
-                  Error loading community reports. Please try again later.
-                </AlertDescription>
-              </Alert>
-            </div>
-          </div>
-        </section>
+        
+        <NewsAndUpdates />
 
         {/* Latest News Section */}
         <section id="news" className="py-16 md:py-24 bg-secondary">
