@@ -1,8 +1,9 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useEffect } from 'react';
 
 // This is a workaround for a known issue with react-leaflet and Next.js App Router.
 // It ensures that the marker icons are loaded correctly.
@@ -28,6 +29,14 @@ interface SafeZonesMapProps {
   safeZones: SafeZone[];
 }
 
+function ChangeView({ center, zoom }: { center: L.LatLngExpression; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
+
 export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
   if (!safeZones || safeZones.length === 0) {
     return <p className="text-center text-muted-foreground p-4">No safe zones available to display on the map.</p>;
@@ -37,6 +46,7 @@ export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
   
   return (
     <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} className="rounded-lg border">
+      <ChangeView center={center} zoom={10} />
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
