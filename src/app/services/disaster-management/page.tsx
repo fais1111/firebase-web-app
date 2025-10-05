@@ -33,6 +33,7 @@ import { format } from 'date-fns';
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import 'leaflet/dist/leaflet.css';
 
 const reportSchema = z.object({
   incidentType: z.string().min(3, "Please specify the incident type."),
@@ -164,8 +165,7 @@ function SOSAlert() {
 const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
     const { MapContainer, TileLayer, Marker, Popup } = require('react-leaflet');
     const L = require('leaflet');
-    require('leaflet/dist/leaflet.css');
-
+    
     const icon = new L.Icon({
       iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
       iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
