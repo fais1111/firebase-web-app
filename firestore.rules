@@ -1,191 +1,161 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset allows all read and write operations for all users.
- * @dataStructure The database consists of several top-level collections: users, accident_reports, admin_locations, accident_guides, therapists, appointments, mental_health_resources, cyber_security_incidents, disaster_reports, sos_reports, safe_zones, and resources.
- * @keySecurityDecisions All collections are publicly readable and writable.
+ * @fileoverview Firestore Security Rules for the application.
+ *
+ * Core Philosophy:
+ * This ruleset allows full access to all data for prototyping purposes.
+ *
+ * Data Structure:
+ * The Firestore database consists of several top-level collections: `users`, `accident_reports`, `admin_locations`, `accident_guides`, `therapists`, `appointments`, `mental_health_resources`, `cyber_security_incidents`, `disaster_reports`, `sos_reports`, `safe_zones`, `resources`, and `news_and_updates`.
+ *
+ * Key Security Decisions:
+ * - All read and write operations are allowed for all users, including unauthenticated users.
  */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows all read and write operations on user profiles.
+     * @description Allows full access to user profiles.
      * @path /users/{userId}
-     * @allow (create) Any authenticated user can create a profile.
-     * @allow (get) Any user can read a user profile.
-     * @allow (update) Any user can update a user profile.
-     * @allow (delete) Any user can delete a user profile.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list user profiles.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /users/{userId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on accident reports.
+     * @description Allows full access to accident reports.
      * @path /accident_reports/{reportId}
-     * @allow (create) Any authenticated user can create an accident report.
-     * @allow (get) Any user can read an accident report.
-     * @allow (update) Any user can update an accident report.
-     * @allow (delete) Any user can delete an accident report.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list accident reports.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /accident_reports/{reportId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on admin locations.
+     * @description Allows full access to admin locations.
      * @path /admin_locations/{locationId}
-     * @allow (create) Any authenticated user can create an admin location.
-     * @allow (get) Any user can read an admin location.
-     * @allow (update) Any user can update an admin location.
-     * @allow (delete) Any user can delete an admin location.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list admin locations.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /admin_locations/{locationId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on accident guides.
+     * @description Allows full access to accident guides.
      * @path /accident_guides/{guideId}
-     * @allow (create) Any authenticated user can create an accident guide.
-     * @allow (get) Any user can read an accident guide.
-     * @allow (update) Any user can update an accident guide.
-     * @allow (delete) Any user can delete an accident guide.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list accident guides.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /accident_guides/{guideId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on therapists.
+     * @description Allows full access to therapists.
      * @path /therapists/{therapistId}
-     * @allow (create) Any authenticated user can create a therapist profile.
-     * @allow (get) Any user can read a therapist profile.
-     * @allow (update) Any user can update a therapist profile.
-     * @allow (delete) Any user can delete a therapist profile.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list therapists.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /therapists/{therapistId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on appointments.
+     * @description Allows full access to appointments.
      * @path /appointments/{appointmentId}
-     * @allow (create) Any authenticated user can create an appointment.
-     * @allow (get) Any user can read an appointment.
-     * @allow (update) Any user can update an appointment.
-     * @allow (delete) Any user can delete an appointment.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list appointments.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /appointments/{appointmentId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on mental health resources.
+     * @description Allows full access to mental health resources.
      * @path /mental_health_resources/{resourceId}
-     * @allow (create) Any authenticated user can create a mental health resource.
-     * @allow (get) Any user can read a mental health resource.
-     * @allow (update) Any user can update a mental health resource.
-     * @allow (delete) Any user can delete a mental health resource.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list mental health resources.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /mental_health_resources/{resourceId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on cyber security incidents.
+     * @description Allows full access to cyber security incidents.
      * @path /cyber_security_incidents/{incidentId}
-     * @allow (create) Any authenticated user can create a cyber security incident report.
-     * @allow (get) Any user can read a cyber security incident report.
-     * @allow (update) Any user can update a cyber security incident report.
-     * @allow (delete) Any user can delete a cyber security incident report.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list cyber security incidents.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /cyber_security_incidents/{incidentId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on disaster reports.
+     * @description Allows full access to disaster reports.
      * @path /disaster_reports/{reportId}
-     * @allow (create) Any authenticated user can create a disaster report.
-     * @allow (get) Any user can read a disaster report.
-     * @allow (update) Any user can update a disaster report.
-     * @allow (delete) Any user can delete a disaster report.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list disaster reports.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /disaster_reports/{reportId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on SOS reports.
+     * @description Allows full access to SOS reports.
      * @path /sos_reports/{reportId}
-     * @allow (create) Any authenticated user can create an SOS report.
-     * @allow (get) Any user can read an SOS report.
-     * @allow (update) Any user can update an SOS report.
-     * @allow (delete) Any user can delete an SOS report.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list SOS reports.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /sos_reports/{reportId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on safe zones.
+     * @description Allows full access to safe zones.
      * @path /safe_zones/{zoneId}
-     * @allow (create) Any authenticated user can create a safe zone.
-     * @allow (get) Any user can read a safe zone.
-     * @allow (update) Any user can update a safe zone.
-     * @allow (delete) Any user can delete a safe zone.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list safe zones.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /safe_zones/{zoneId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
     }
 
     /**
-     * @description Allows all read and write operations on resources.
+     * @description Allows full access to resources.
      * @path /resources/{resourceId}
-     * @allow (create) Any authenticated user can create a resource.
-     * @allow (get) Any user can read a resource.
-     * @allow (update) Any user can update a resource.
-     * @allow (delete) Any user can delete a resource.
-     * @deny (none) There are no restrictions.
-     * @principle Allows all access.
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list resources.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
      */
     match /resources/{resourceId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if true;
+    }
+
+    /**
+     * @description Allows full access to news and updates.
+     * @path /news_and_updates/{newsId}
+     * @allow (get, list, create, update, delete) - Any user can read, write, and list news and updates.
+     * @deny None - All operations are allowed.
+     * @principle Allows any operation.
+     */
+    match /news_and_updates/{newsId} {
+      allow get, list, create, update, delete: if true;
     }
   }
 }
