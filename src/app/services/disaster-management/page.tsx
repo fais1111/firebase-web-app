@@ -165,7 +165,7 @@ const DynamicMap = dynamic(
   () => import('@/components/SafeZonesMap'),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-[400px] w-full" />,
+    loading: () => <Skeleton className="h-full w-full min-h-[400px] rounded-lg" />,
   }
 );
 
@@ -181,13 +181,15 @@ function SafeZones() {
                 <CardTitle className="flex items-center gap-2"><LifeBuoy /> Designated Safe Zones</CardTitle>
                 <CardDescription>Locations designated by administrators as safe during a disaster.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                 {isLoading && <Loader2 className="animate-spin" />}
-                 {error && <p className="text-destructive">Could not load safe zones.</p>}
+            <CardContent className="grid md:grid-cols-2 gap-6">
+                 {isLoading && <Loader2 className="animate-spin md:col-span-2" />}
+                 {error && <p className="text-destructive md:col-span-2">Could not load safe zones.</p>}
                 
-                {!isLoading && safeZones && safeZones.length > 0 && <DynamicMap safeZones={safeZones} />}
+                <div className="w-full min-h-[400px] rounded-lg">
+                  {!isLoading && safeZones && <DynamicMap safeZones={safeZones} />}
+                </div>
 
-                <div className="space-y-4 max-h-60 overflow-y-auto">
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-3">
                     {!isLoading && safeZones?.length === 0 && <p className="text-muted-foreground text-sm">No safe zones have been designated yet.</p>}
                     {safeZones?.map(zone => (
                         <div key={zone.id} className="p-4 border rounded-lg bg-secondary/30">
@@ -265,10 +267,9 @@ export default function DisasterManagementPage() {
             )
           )}
           
-          <div className="grid md:grid-cols-2 gap-8">
-              <SafeZones />
-              <QuickContacts />
-          </div>
+          <SafeZones />
+          <QuickContacts />
+          
 
           {user && <DisasterReportForm />}
         </div>
