@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -162,46 +163,7 @@ function SOSAlert() {
 }
 
 const DynamicMap = dynamic(
-  () =>
-    new Promise((resolve) => {
-      const { MapContainer, TileLayer, Marker, Popup } = require('react-leaflet');
-      const L = require('leaflet');
-      
-      const icon = new L.Icon({
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41],
-      });
-
-      const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
-        if (!safeZones || safeZones.length === 0) {
-          return null;
-        }
-        const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
-
-        return (
-          <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }} className="rounded-lg border">
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            {safeZones.map((zone) => (
-              <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
-                <Popup>
-                  <h4 className="font-bold">{zone.name}</h4>
-                  <p>{zone.details}</p>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        );
-      };
-      resolve(SafeZonesMap);
-    }),
+  () => import('@/components/SafeZonesMap'),
   {
     ssr: false,
     loading: () => <Skeleton className="h-[400px] w-full" />,
@@ -314,3 +276,5 @@ export default function DisasterManagementPage() {
       </div>
     );
   }
+
+    
