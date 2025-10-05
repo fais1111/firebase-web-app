@@ -61,7 +61,7 @@ function NewsAndUpdates() {
   const firestore = useFirestore();
   const newsQuery = useMemoFirebase(() => 
     firestore 
-      ? query(collection(firestore, 'news_and_updates'), orderBy('createdAt', 'desc'), limit(5))
+      ? query(collection(firestore, 'news_and_updates'), orderBy('createdAt', 'desc'), limit(3))
       : null,
     [firestore]
   );
@@ -87,29 +87,29 @@ function NewsAndUpdates() {
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto space-y-6">
-          {isLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {isLoading && <div className="flex justify-center col-span-full"><Loader2 className="h-8 w-8 animate-spin" /></div>}
           {error && (
-             <div className="text-destructive-foreground bg-destructive/90 p-4 rounded-md flex items-center gap-4">
+             <div className="text-destructive-foreground bg-destructive/90 p-4 rounded-md flex items-center gap-4 col-span-full">
               <AlertTriangle />
               <p>Could not load news and updates. Please check back later.</p>
             </div>
           )}
           {!isLoading && newsItems?.length === 0 && (
-            <p className="text-center text-muted-foreground">No news to display at the moment.</p>
+            <p className="text-center text-muted-foreground col-span-full">No news to display at the moment.</p>
           )}
           {newsItems?.map((item) => {
             const isExpanded = expandedPost === item.id;
             const showReadMore = item.content.length > 150;
             return(
-              <Card key={item.id} className="bg-secondary/30">
+              <Card key={item.id} className="bg-secondary/30 flex flex-col">
                 <CardHeader>
                   <CardTitle className="font-headline text-xl">{item.title}</CardTitle>
                   <CardDescription>
                     {item.createdAt ? format(new Date(item.createdAt.seconds * 1000), 'PPP') : 'Just now'}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-grow">
                   <p className="whitespace-pre-wrap">{isExpanded ? item.content : getSnippet(item.content)}</p>
                   {showReadMore && (
                     <Button variant="link" className="p-0 mt-2" onClick={() => toggleExpanded(item.id)}>
