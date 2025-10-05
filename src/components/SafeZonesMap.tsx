@@ -54,5 +54,3 @@ export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
     </MapContainer>
   );
 }
-
-    

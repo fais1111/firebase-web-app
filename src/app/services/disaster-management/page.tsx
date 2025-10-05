@@ -30,7 +30,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
-import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import 'leaflet/dist/leaflet.css';
@@ -276,5 +275,3 @@ export default function DisasterManagementPage() {
       </div>
     );
   }
-
-    
