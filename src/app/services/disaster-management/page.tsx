@@ -35,6 +35,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 // Leaflet's default icon doesn't work well with React/Next.js out of the box.
@@ -178,7 +179,7 @@ function SOSAlert() {
 }
 
 const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
-  if (!safeZones || safeZones.length === 0) {
+  if (typeof window === 'undefined' || !safeZones || safeZones.length === 0) {
     return null;
   }
   // Default center of the map (can be adjusted)
