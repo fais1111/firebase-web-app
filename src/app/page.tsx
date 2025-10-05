@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useState } from 'react';
 
 const heroImage = placeholderImages.placeholderImages.find(
   (img) => img.id === 'hero-mountain-peak'
@@ -65,6 +66,16 @@ function NewsAndUpdates() {
     [firestore]
   );
   const { data: newsItems, isLoading, error } = useCollection(newsQuery);
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedPost(expandedPost === id ? null : id);
+  };
+
+  const getSnippet = (content: string) => {
+    if (content.length <= 150) return content;
+    return content.substring(0, 150) + '...';
+  };
 
   return (
      <section id="news-updates" className="py-16 md:py-24">
@@ -87,19 +98,28 @@ function NewsAndUpdates() {
           {!isLoading && newsItems?.length === 0 && (
             <p className="text-center text-muted-foreground">No news to display at the moment.</p>
           )}
-          {newsItems?.map((item) => (
-            <Card key={item.id} className="bg-secondary/30">
-              <CardHeader>
-                <CardTitle className="font-headline text-xl">{item.title}</CardTitle>
-                <CardDescription>
-                  {item.createdAt ? format(new Date(item.createdAt.seconds * 1000), 'PPP') : 'Just now'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap">{item.content}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {newsItems?.map((item) => {
+            const isExpanded = expandedPost === item.id;
+            const showReadMore = item.content.length > 150;
+            return(
+              <Card key={item.id} className="bg-secondary/30">
+                <CardHeader>
+                  <CardTitle className="font-headline text-xl">{item.title}</CardTitle>
+                  <CardDescription>
+                    {item.createdAt ? format(new Date(item.createdAt.seconds * 1000), 'PPP') : 'Just now'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap">{isExpanded ? item.content : getSnippet(item.content)}</p>
+                  {showReadMore && (
+                    <Button variant="link" className="p-0 mt-2" onClick={() => toggleExpanded(item.id)}>
+                      {isExpanded ? 'Read Less' : 'Read More'}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </section>
