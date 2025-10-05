@@ -863,6 +863,14 @@ const safeZoneSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
   location: z.string().min(5, "Location must be at least 5 characters."),
   details: z.string().min(10, "Details must be at least 10 characters."),
+  latitude: z.preprocess(
+    (a) => parseFloat(z.string().parse(a)),
+    z.number().min(-90).max(90)
+  ),
+  longitude: z.preprocess(
+    (a) => parseFloat(z.string().parse(a)),
+    z.number().min(-180).max(180)
+  ),
 });
 
 function SafeZoneManager() {
@@ -873,7 +881,7 @@ function SafeZoneManager() {
 
     const form = useForm<z.infer<typeof safeZoneSchema>>({
         resolver: zodResolver(safeZoneSchema),
-        defaultValues: { name: "", location: "", details: "" },
+        defaultValues: { name: "", location: "", details: "", latitude: 0, longitude: 0 },
     });
 
     const handleDelete = async (id: string) => {
@@ -911,6 +919,14 @@ function SafeZoneManager() {
                         <FormField control={form.control} name="location" render={({ field }) => (
                            <FormItem><FormLabel>Location / Address</FormLabel><FormControl><Input placeholder="123 Main St, Townsville" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
+                        <div className="grid grid-cols-2 gap-4">
+                           <FormField control={form.control} name="latitude" render={({ field }) => (
+                              <FormItem><FormLabel>Latitude</FormLabel><FormControl><Input type="number" placeholder="e.g., 34.0522" {...field} /></FormControl><FormMessage /></FormItem>
+                           )} />
+                           <FormField control={form.control} name="longitude" render={({ field }) => (
+                              <FormItem><FormLabel>Longitude</FormLabel><FormControl><Input type="number" placeholder="e.g., -118.2437" {...field} /></FormControl><FormMessage /></FormItem>
+                           )} />
+                        </div>
                         <FormField control={form.control} name="details" render={({ field }) => (
                             <FormItem><FormLabel>Details</FormLabel><FormControl><Textarea placeholder="e.g., Provides food, water, and medical aid." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />

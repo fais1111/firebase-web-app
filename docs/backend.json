@@ -171,9 +171,11 @@
         "name": { "type": "string" },
         "location": { "type": "string" },
         "details": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
         "addedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "location", "details", "addedAt"]
+      "required": ["name", "location", "details", "latitude", "longitude", "addedAt"]
     },
     "Resource": {
       "$schema": "http://json-schema.org/draft-07/schema#",

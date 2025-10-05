@@ -30,6 +30,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
+
+
+// Leaflet's default icon doesn't work well with React/Next.js out of the box.
+// This manually sets up the icon path.
+const icon = new L.Icon({
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 
 const reportSchema = z.object({
   incidentType: z.string().min(3, "Please specify the incident type."),
@@ -158,6 +177,37 @@ function SOSAlert() {
     );
 }
 
+const SafeZonesMap = ({ safeZones }: { safeZones: any[] }) => {
+  if (!safeZones || safeZones.length === 0) {
+    return null;
+  }
+  // Default center of the map (can be adjusted)
+  const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
+
+  return (
+    <MapContainer center={center} zoom={10} style={{ height: '400px', width: '100%' }} className="rounded-lg border z-0">
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {safeZones.map(zone => (
+        <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
+          <Popup>
+            <h4 className="font-bold">{zone.name}</h4>
+            <p>{zone.details}</p>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
+};
+
+const DynamicMap = dynamic(() => Promise.resolve(SafeZonesMap), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[400px] w-full" />,
+});
+
+
 function SafeZones() {
     const firestore = useFirestore();
     const safeZonesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'safe_zones') : null, [firestore]);
@@ -169,10 +219,13 @@ function SafeZones() {
                 <CardTitle className="flex items-center gap-2"><LifeBuoy /> Designated Safe Zones</CardTitle>
                 <CardDescription>Locations designated by administrators as safe during a disaster.</CardDescription>
             </CardHeader>
-            <CardContent>
-                {isLoading && <Loader2 className="animate-spin" />}
-                {error && <p className="text-destructive">Could not load safe zones.</p>}
-                <div className="space-y-4">
+            <CardContent className="space-y-4">
+                 {isLoading && <Loader2 className="animate-spin" />}
+                 {error && <p className="text-destructive">Could not load safe zones.</p>}
+                
+                {!isLoading && safeZones && safeZones.length > 0 && <DynamicMap safeZones={safeZones} />}
+
+                <div className="space-y-4 max-h-60 overflow-y-auto">
                     {!isLoading && safeZones?.length === 0 && <p className="text-muted-foreground text-sm">No safe zones have been designated yet.</p>}
                     {safeZones?.map(zone => (
                         <div key={zone.id} className="p-4 border rounded-lg bg-secondary/30">
