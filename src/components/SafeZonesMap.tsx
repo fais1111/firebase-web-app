@@ -1,7 +1,5 @@
-
 'use client';
 
-import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -31,31 +29,26 @@ interface SafeZonesMapProps {
 }
 
 export default function SafeZonesMap({ safeZones }: SafeZonesMapProps) {
-  const displayMap = useMemo(() => {
-    if (!safeZones || safeZones.length === 0) {
-      return <p className="text-center text-muted-foreground p-4">No safe zones available to display on the map.</p>;
-    }
+  if (!safeZones || safeZones.length === 0) {
+    return <p className="text-center text-muted-foreground p-4">No safe zones available to display on the map.</p>;
+  }
 
-    const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
-    
-    return (
-      <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} className="rounded-lg border">
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        {safeZones.map((zone) => (
-          <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
-            <Popup>
-              <h4 className="font-bold">{zone.name}</h4>
-              <p>{zone.details}</p>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
-    );
-  }, [safeZones]);
-
-  return <div className="h-full w-full min-h-[400px]">{displayMap}</div>;
+  const center: L.LatLngExpression = [safeZones[0].latitude, safeZones[0].longitude];
+  
+  return (
+    <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} className="rounded-lg border">
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {safeZones.map((zone) => (
+        <Marker key={zone.id} position={[zone.latitude, zone.longitude]} icon={icon}>
+          <Popup>
+            <h4 className="font-bold">{zone.name}</h4>
+            <p>{zone.details}</p>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
 }
-
